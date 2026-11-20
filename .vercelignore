@@ -1,0 +1,7 @@
+# Fichiers internes exclus de l'upload Vercel
+GEMINI.md
+AUDIT_OPUS.md
+dist
+server
+Coilball start server.bat
+notes

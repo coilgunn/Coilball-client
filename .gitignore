@@ -1,0 +1,12 @@
+.netlify
+.vercel
+dist/
+coilball_google_sites.html
+server/node_modules/
+server/server.log
+server/tray.pid
+server/node.pid
+server/banned-ips.json
+
+.vercel
+.env*

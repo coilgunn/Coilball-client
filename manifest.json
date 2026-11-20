@@ -1,0 +1,9 @@
+{
+  "name": "Coilball",
+  "short_name": "Coilball",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "start_url": "./"
+}

@@ -1,0 +1,827 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Coilball 3D — Prototype Mode Pédagogique</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Conteneur WebGL 3D -->
+  <div id="canvas-container"></div>
+
+  <!-- Étiquettes 3D projetées au-dessus des joueuses -->
+  <div id="labels-container"></div>
+  <div id="tut-overhead-objective" class="hidden"></div>
+
+  <!-- Curseur virtuel MOBA confiné à l'écran -->
+  <div id="moba-virtual-cursor" class="hidden" aria-hidden="true">
+    <svg viewBox="0 0 28 28" width="28" height="28">
+      <polygon points="3,2 23,14 14,16 10,25" fill="#38bdf8" stroke="#0f172a" stroke-width="2.4" stroke-linejoin="round" />
+      <polygon points="5.5,5.5 19,13.6 12.6,15.1 9.8,21.2" fill="#e0f2fe" />
+    </svg>
+  </div>
+
+  <!-- Barre de score supérieure -->
+  <div id="hud-top">
+    <div class="team-score-box">
+      <span class="team-tag ally" id="hud-tag-ally">Équipe Or (Vous)</span>
+      <div class="stat-pill pv" title="Points de Score (Objectif : 7 pts avec 2 d'écart)">
+        <span class="label">Pts (Buts)</span>
+        <span class="value" id="ally-pv">0</span>
+      </div>
+      <div class="stat-pill pe" title="Pièces d'or (1 🪙 PO par interception)">
+        <span class="label">🪙 PO (Or)</span>
+        <span class="value" id="ally-pe">0</span>
+      </div>
+    </div>
+
+    <div class="round-center">
+      <span class="round-title" id="round-label">RONDE 1</span>
+      <span class="round-phase" id="phase-label">En jeu</span>
+      <span class="goal-target-sub" id="bounty-status">Objectif : 7 pts (écart de 2)</span>
+    </div>
+
+    <div class="team-score-box">
+      <div class="stat-pill pv">
+        <span class="label">Pts (Buts)</span>
+        <span class="value" id="enemy-pv">0</span>
+      </div>
+      <div class="stat-pill pe">
+        <span class="label">🪙 PO (Or)</span>
+        <span class="value" id="enemy-pe">0</span>
+      </div>
+      <span class="team-tag enemy" id="hud-tag-enemy">Équipe Violette</span>
+    </div>
+  </div>
+
+  <!-- Panneau Gauche à Sous-Menus : Équipes & Triangle d'Interception -->
+  <div id="roster-panel">
+    <div class="hud-submenu-bar">
+      <button type="button" class="hud-tab-btn active" id="btn-hud-tab-roster" data-hud-tab="roster">👥 Équipes</button>
+      <button type="button" class="hud-tab-btn" id="btn-hud-tab-rps" data-hud-tab="rps">🔺 Triangle (🌿💧🔥)</button>
+      <button type="button" class="hud-tab-icon" id="btn-hud-collapse-left" title="Réduire / Agrandir le panneau">▾</button>
+    </div>
+
+    <div id="hud-left-body">
+      <div id="hud-pane-roster">
+        <div class="roster-section-title">
+          <span>Vos Joueuses (Clic G / D)</span>
+          <span style="color:#fde047;">Dos connu</span>
+        </div>
+        <div id="ally-roster-list"></div>
+
+        <div class="roster-section-title" style="margin-top: 10px;">
+          <span>Adversaires (En vue / Dos)</span>
+          <span id="notebook-badge" style="color:#94a3b8;">👁️ 0/3 repérés</span>
+        </div>
+        <div id="enemy-roster-list"></div>
+      </div>
+
+      <!-- Aide-mémoire Triangle des Couleurs (intégré en sous-menu) -->
+      <div id="rps-widget" class="hud-subpane hidden">
+        <h4>Triangle d'Interception</h4>
+        <div class="rps-chain">
+          <span class="color-badge green">Vert (🌿)</span>
+          <span>&gt;</span>
+          <span class="color-badge blue">Bleu (💧)</span>
+          <span>&gt;</span>
+          <span class="color-badge red">Rouge (🔥)</span>
+        </div>
+        <div style="text-align:center; font-size:0.75rem; font-weight:800; color:#cbd5e1; margin-top:4px;">
+          &#8593; Rouge (🔥 Flamme) bat Vert (🌿 Feuille) &#8629;
+        </div>
+        <p class="rps-sub">
+          • <strong>Prendre une balle</strong> : même couleur que votre dossard.<br/>
+          • <strong>Couleur cachée</strong> : passez derrière une adversaire pour voir son dos !<br/>
+          • <strong>Même couleur</strong> : Règle 1 (bloquées sur place).<br/>
+          • <strong>Ultimates (Ronde 2+, touche R puis Clic G)</strong> :<br/>
+          &nbsp;&nbsp;🔥 <em>Feu</em> : Laser plasma sniper (charge 0.5s, visée libre, assied tout le monde, bloqué par obstacles/bois/eau).<br/>
+          &nbsp;&nbsp;🌿 <em>Feuille</em> : Sprint x3 (2s) + germes → Mur de branches &amp; plessis (après 1s, dure 4s).<br/>
+          &nbsp;&nbsp;💧 <em>Eau</em> : Large vague (repousse, protège du feu, contourne obstacles sauf mur de bois).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimap Tactique & Visions Dynamiques (Haut Droite) -->
+  <div id="minimap-panel">
+    <div class="minimap-header">
+      <span class="minimap-title" id="minimap-map-name">🗺️ Minimap &amp; Visions</span>
+      <div class="minimap-controls">
+        <button type="button" class="minimap-btn" id="btn-minimap-vision" title="Changer l'affichage des cônes de vision (Touche V)">👁️ 2 Équipes</button>
+        <button type="button" class="minimap-btn" id="btn-minimap-size" title="Agrandir / Réduire la minimap (Touche M)">🔍</button>
+      </div>
+    </div>
+    <div class="minimap-canvas-wrap">
+      <canvas id="minimap-canvas" width="268" height="174"></canvas>
+    </div>
+    <div class="minimap-legend">
+      <span><i class="legend-dot ally-cone"></i>Vision Or</span>
+      <span><i class="legend-dot enemy-cone"></i>Vision Violette</span>
+      <span><i class="legend-dot bush"></i>Herbes</span>
+      <span id="minimap-spotted-count" style="margin-left:auto; color:#fde047; font-weight:800;">👁️ 0/3 vus</span>
+    </div>
+  </div>
+
+  <!-- Bannière d'information / Tutoriel -->
+  <div id="banner-toast" class="hidden"></div>
+
+  <!-- Panneau Guidé Compact (Coin Bas Gauche) : Séquence Tutoriel en 5 Étapes -->
+  <div id="tutorial-sequence-hud" class="hidden">
+    <div class="tut-steps-bar" id="tut-steps-bar">
+      <button type="button" class="tut-step-pill active" data-tut-step="1">1·Mouv</button>
+      <button type="button" class="tut-step-pill" data-tut-step="2">2·But</button>
+      <button type="button" class="tut-step-pill" data-tut-step="3">3·🪙 PO</button>
+      <button type="button" class="tut-step-pill" data-tut-step="4">4·Ult 🔥</button>
+      <button type="button" class="tut-step-pill" data-tut-step="5">5·MOBA 🦅</button>
+    </div>
+    <div class="tut-header-row">
+      <span class="tut-step-title" id="tut-step-title">1/5 — Mouvement</span>
+    </div>
+    <p class="tut-step-desc" id="tut-step-desc">Rejoignez la balise, dashez et changez de perso.</p>
+    <div class="tut-checklist" id="tut-checklist"></div>
+    <div class="tut-actions-row">
+      <button type="button" class="action-btn hidden" id="btn-tut-open-shop" style="border-color:#fbbf24; color:#fde047; padding:4px 8px; font-size:0.69rem;">🛒 Boutique [B]</button>
+      <button type="button" class="action-btn hidden" id="btn-tut-refresh-ult" style="border-color:#38bdf8; color:#7dd3fc; padding:4px 8px; font-size:0.69rem;">⚡ Recharger</button>
+      <div style="margin-left:auto; display:flex; gap:5px;">
+        <button type="button" class="action-btn" id="btn-tut-to-practice" style="padding:4px 8px; font-size:0.68rem;">🧪 Pratique</button>
+        <button type="button" class="action-btn primary" id="btn-tut-next" style="padding:4px 9px; font-size:0.69rem;">Suivant ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu Spécial du Mode Pratique ("Un tour pour rien" — Sans IA) -->
+  <div id="practice-menu-bar" class="hidden">
+    <span class="practice-bar-tag">🧪 Mode Pratique (Sans IA)</span>
+    <button type="button" class="practice-bar-btn ult" id="btn-practice-refresh-ults" title="Réinitialiser les Ultimates & cooldowns de toutes les joueuses">⚡ Refresh Ultimates</button>
+    <button type="button" class="practice-bar-btn stand" id="btn-practice-standup" title="Relever toutes les joueuses assises ou en Règle 1">🧍 Relever les persos</button>
+    <div class="practice-map-wrap">
+      <label for="practice-map-select" style="font-size:0.72rem; color:#cbd5e1; font-weight:700;">🗺️ Carte :</label>
+      <select id="practice-map-select" class="practice-map-select">
+        <option value="classic">🌳 Arbre-Esprit (Classique)</option>
+        <option value="rift">⚔️ Faille de l'Invocateur (LoL)</option>
+        <option value="lafontaine">⛲ Parc La Fontaine</option>
+        <option value="saint-viateur">🏛️ Parc Saint-Viateur</option>
+        <option value="jarry">🎾 Parc Jarry</option>
+        <option value="mont-royal">⛰️ Mont-Royal</option>
+        <option value="tutorial">🌱 Terrain de Base (Dégagé)</option>
+      </select>
+    </div>
+    <button type="button" class="practice-bar-btn" id="btn-practice-reset" title="Replacer les ballons et joueuses au départ">🔄 Reset Pos</button>
+    <button type="button" class="practice-bar-btn shop" id="btn-practice-open-shop" title="Ouvrir le Magasin avec pièces d'or illimitées [B]">🛒 Magasin (🪙 ∞)</button>
+    <button type="button" class="practice-bar-btn reset-pwr" id="btn-practice-reset-powers" title="Réinitialiser tous les pouvoirs, évolutions et dossards achetés">🧹 Reset Pouvoirs</button>
+    <button type="button" class="practice-bar-btn" id="btn-practice-swap-team" title="Basculer d'équipe en solo pour placer l'équipe adverse">🔁 Équipe : Or</button>
+    <button type="button" class="practice-bar-btn mp" id="btn-practice-mp" title="Ouvrir le salon multijoueur par code à 4 chiffres">🌐 Multijoueur (Code)</button>
+    <span class="practice-cursor-hint" title="Appuyez sur P (ou Y pour vue MOBA) pour libérer le curseur et cliquer"><strong>[P]</strong> Curseur</span>
+  </div>
+
+  <!-- Alerte Règle 1 de Rocket League -->
+  <div id="rule1-alert" class="hidden">
+    ⚡ RÈGLE 1 DE ROCKET LEAGUE ! Même couleur : les deux joueuses restent bloquées face à face !<br/>
+    <span style="font-size:0.82rem; font-weight:600;">Faites un [Clic Gauche] ou [Clic Droit] pour incarner une coéquipière et venir résoudre l'égalité !</span>
+  </div>
+
+  <!-- Indicateur HUD de l'Ultimate Élémentaire (Ronde 2+) -->
+  <div id="ult-hud-widget" class="ult-locked">
+    <span class="ult-hud-icon" id="ult-hud-icon">🔒</span>
+    <div class="ult-hud-info">
+      <span class="ult-hud-title" id="ult-hud-title">Ultimate [R] — Dès la Ronde 2</span>
+      <span class="ult-hud-sub" id="ult-hud-sub">1x par ronde • Sans ballon</span>
+    </div>
+  </div>
+
+  <!-- Sous-menu Aide Contrôles (Escamotable en Bas Gauche, Touche H) -->
+  <div id="controls-help" class="collapsed-submenu">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:10px; flex-wrap:wrap;">
+      <strong id="controls-help-title" style="color:#f8fafc;">🕹️ Contrôles Clavier / Souris &amp; Manette</strong>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="gamepad-status" style="font-size:0.72rem; color:#94a3b8; font-weight:700;">🎮 Manette compatible</span>
+        <button type="button" class="action-btn" id="btn-open-controls-config" style="padding:3px 8px; font-size:0.71rem; border-color:#38bdf8; color:#7dd3fc;">⚙️ Modifier les touches</button>
+      </div>
+    </div>
+    <div id="controls-help-body">
+      <div><kbd>Souris</kbd> ou <kbd>Stick Droit</kbd> : Angle de vision (curseur verrouillé) &nbsp;•&nbsp; <kbd>Échap</kbd> / <kbd>Start</kbd> : Pause</div>
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>Stick Gauche</kbd> : Avancer / Reculer / Strafer &nbsp;•&nbsp; <kbd>F</kbd> : Plein écran</div>
+      <div><kbd>Clic G / D</kbd> ou <kbd>LB / RB</kbd> (<kbd>L1 / R1</kbd>) : Changer de joueuse (G / C / D)</div>
+      <div><kbd>R</kbd> puis <kbd>Clic Gauche</kbd> : Viser &amp; déclencher l'<strong>Ultimate</strong> (dès Ronde 2, sans ballon)</div>
+      <div><kbd>Shift</kbd> : Dash &nbsp;•&nbsp; <kbd>E</kbd> : Passe / Outil / Se relever &nbsp;•&nbsp; <kbd>Espace</kbd> : Saut &nbsp;•&nbsp; <kbd>M</kbd> : MOBA &nbsp;•&nbsp; <kbd>Y</kbd> : Caméra fixe &nbsp;•&nbsp; <kbd>N</kbd>/<kbd>V</kbd> : Minimap</div>
+    </div>
+  </div>
+
+  <!-- Contrôles tactiles (Mode Mobile / Écran restreint, visibles uniquement en jeu actif) -->
+  <div id="mobile-touch-controls" class="mobile-touch-controls hidden" aria-label="Contrôles tactiles">
+    <div id="mobile-joystick-zone">
+      <div id="mobile-joystick-base">
+        <div id="mobile-joystick-stick"></div>
+      </div>
+    </div>
+
+    <div id="mobile-cam-zone" aria-label="Joystick caméra">
+      <div id="mobile-cam-base">
+        <div id="mobile-cam-stick">🎥</div>
+      </div>
+    </div>
+
+    <div id="mobile-top-bar" class="mobile-top-bar">
+      <button type="button" class="mob-util-btn" id="mob-btn-pause">⏸ Menu</button>
+      <button type="button" class="mob-util-btn" id="mob-btn-cam">🎥 TPS</button>
+      <button type="button" class="mob-util-btn hidden" id="mob-btn-recenter">🎯 Centrer</button>
+      <button type="button" class="mob-util-btn hidden" id="mob-btn-shop">🛒 Boutique</button>
+    </div>
+
+    <div id="mobile-role-bar" class="mobile-role-bar">
+      <button type="button" class="mob-role-btn active" id="mob-role-G" data-role="G">G</button>
+      <button type="button" class="mob-role-btn" id="mob-role-C" data-role="C">C</button>
+      <button type="button" class="mob-role-btn" id="mob-role-D" data-role="D">D</button>
+    </div>
+
+    <div id="mobile-action-cluster" class="mobile-action-cluster">
+      <button type="button" class="mob-action-btn mob-ult" id="mob-btn-ult">⚡ Ult</button>
+      <button type="button" class="mob-action-btn mob-primary" id="mob-btn-action">🖐️ Action</button>
+      <button type="button" class="mob-action-btn mob-dash" id="mob-btn-dash">💨 Dash</button>
+      <button type="button" class="mob-action-btn mob-jump hidden" id="mob-btn-jump">⬆️ Saut</button>
+    </div>
+
+    <div id="mob-aim-ring" class="mob-aim-ring hidden" aria-hidden="true">
+      <div id="mob-aim-knob" class="mob-aim-knob"></div>
+    </div>
+  </div>
+
+  <!-- Bandeau discret en mode portrait sur mobile (non bloquant) -->
+  <div id="mobile-portrait-hint" class="mobile-portrait-hint hidden" role="status">
+    <span>🔄 Tournez votre appareil en mode <strong>paysage</strong> pour une meilleure vue</span>
+    <button type="button" class="action-btn" id="btn-dismiss-portrait-hint" aria-label="Fermer">✕</button>
+  </div>
+
+  <!-- Dock d'Actions Rapides & Sous-Menus (Bas Droite) -->
+  <div id="quick-actions">
+    <button class="action-btn hidden" id="btn-quick-practice-shop" title="Ouvrir le Magasin de pouvoirs avec pièces illimitées (Touche B)" style="border-color:#fbbf24; color:#fde047;">🛒 Magasin (🪙 ∞) [B]</button>
+    <button class="action-btn" id="btn-toggle-controls" title="Afficher / Masquer l'aide des contrôles (Touche H)">🕹️ Contrôles (H)</button>
+    <button class="action-btn" id="btn-toggle-cam">🎥 Vue : 3e Personne (TPS)</button>
+    <button class="action-btn" id="btn-fullscreen">⛶ Plein écran (F)</button>
+    <button class="action-btn" id="btn-end-round">⏭️ Passer ronde</button>
+    <button class="action-btn primary" id="btn-open-rules">⚙️ Menu &amp; Règles</button>
+  </div>
+
+  <!-- OVERLAY D'INTRODUCTION RAPIDE DU TUTORIEL -->
+  <div class="tutorial-intro-overlay hidden" id="tutorial-intro-overlay" role="dialog" aria-modal="true" aria-labelledby="tut-intro-title">
+    <div class="tutorial-intro-card">
+      <div class="tutorial-intro-header">
+        <span class="mode-card-badge">🎓 Tutoriel • But du Jeu</span>
+        <h2 id="tut-intro-title">Bienvenue dans Coilball !</h2>
+      </div>
+      <div class="tutorial-intro-grid">
+        <div class="tutorial-intro-box goal">
+          <h3>🏆 Gagner des points de victoire</h3>
+          <p>Ramassez un ballon <strong>de votre couleur</strong> et amenez-le dans le <strong>cerceau adverse</strong> pour marquer (premier à <strong>7 pts</strong> avec 2 d'écart).</p>
+        </div>
+        <div class="tutorial-intro-box coins">
+          <h3>🪙 Améliorer vos personnages</h3>
+          <p>Interceptez les adversaires (<strong>🌿 &gt; 💧 &gt; 🔥 &gt; 🌿</strong>) pour accumuler des <strong>pièces d'or (🪙 PO)</strong> et acheter des évolutions au magasin.</p>
+        </div>
+      </div>
+      <div class="tutorial-intro-footer">
+        <button type="button" class="action-btn primary" id="btn-tut-intro-start">▶ C'est parti !</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE MENU PRINCIPAL -->
+  <div class="modal-overlay" id="welcome-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <button type="button" class="action-btn modal-options-btn" id="btn-welcome-options" title="Affichage, performances et personnalisation des contrôles">⚙️ Options</button>
+        <div class="modal-header-title-wrap">
+          <h2 id="welcome-modal-title">🌀 Coilball 3D — Mode Pédagogique</h2>
+          <div id="welcome-modal-subtitle" class="modal-header-subtitle">Arène MOBA 3v3 • Dossards cachés • Visions dynamiques</div>
+        </div>
+        <div class="welcome-header-right">
+          <span class="team-tag ally">Par Loïc Mineau-Murray</span>
+        </div>
+      </div>
+
+      <!-- Barre de navigation par sous-menus -->
+      <div class="submenu-tabs" id="welcome-submenu-tabs">
+        <button type="button" class="submenu-tab-btn active" data-welcome-tab="play">🎮 Jouer &amp; Modes</button>
+        <button type="button" class="submenu-tab-btn" data-welcome-tab="rules">📖 Règles du Jeu</button>
+      </div>
+
+      <!-- SOUS-MENU 1 : JOUER & MODES -->
+      <div class="submenu-pane" id="welcome-pane-play">
+        <p class="modal-subtitle" style="margin-bottom:12px;">
+          Chaque joueuse porte son symbole élémentaire (<strong>Vert 🌿 Feuille</strong>, <strong>Bleu 💧 Goutte</strong>, <strong>Rouge 🔥 Flamme</strong>) <strong>uniquement dans son dos</strong>. Choisissez votre mode de jeu !
+        </p>
+
+        <div class="mode-cards-grid">
+          <div class="mode-select-card highlight">
+            <div class="mode-card-badge">5 Étapes Guidées</div>
+            <h3>🎓 Séquence Tutoriel</h3>
+            <p>Apprenez <strong>1. Mouvement</strong>, <strong>2. But (+1 pt)</strong>, <strong>3. Triangle &amp; 🪙 PO</strong>, <strong>4. Ultimates</strong> et <strong>5. Vue MOBA</strong> sur la petite carte dégagée.</p>
+            <button class="action-btn primary" id="btn-start-tutorial" style="width:100%; margin-top:auto;">🎓 Lancer le Tutoriel</button>
+          </div>
+
+          <div class="mode-select-card">
+            <div class="mode-card-badge">Classique 3v3</div>
+            <h3>🚀 Match Solo vs IA</h3>
+            <p>Affrontez l'IA en 3v3 (objectif 7 pts avec 2 d'écart). Classique (Ultimates + Évos) ou Vanille (sans Ult, Dash+, Évos Dash ni Outils).</p>
+            <div style="display:flex; gap:6px; margin-top:auto;">
+              <button class="action-btn primary" id="btn-start-game" style="flex:1; padding:9px 8px; font-size:0.78rem;">🚀 Classique</button>
+              <button class="action-btn" id="btn-start-vanilla" style="flex:1; border-color:#fbbf24; color:#fde047; padding:9px 8px; font-size:0.78rem;">🍦 Vanille</button>
+            </div>
+          </div>
+
+          <div class="mode-select-card mp-card">
+            <div class="mode-card-badge" style="background:rgba(56,189,248,0.2); color:#7dd3fc; border-color:rgba(56,189,248,0.4);">1v1 à 3v3</div>
+            <h3>🌐 Multijoueur</h3>
+            <p>Créez ou rejoignez un salon avec un code à 4 chiffres (Match normal avec IA ou Mode Pratique sans IA).</p>
+            <button class="action-btn" id="btn-open-mp" style="width:100%; margin-top:auto; border-color:#38bdf8; color:#38bdf8;">🌐 Ouvrir le Salon Multijoueur</button>
+          </div>
+
+          <div class="mode-select-card practice-card">
+            <div class="mode-card-badge" style="background:rgba(20,184,166,0.22); color:#5eead4; border-color:rgba(20,184,166,0.45);">Sans IA • Bac à sable</div>
+            <h3>🧪 "Un tour pour rien" (Pratique)</h3>
+            <p>Entraînement libre <strong>sans aucune IA</strong> : commandes spéciales dans le menu Pause [Échap] (refresh ults, relever persos, changer de carte) + multijoueur par code.</p>
+            <div style="display:flex; gap:6px; margin-top:auto;">
+              <button class="action-btn" id="btn-start-practice" style="flex:1; border-color:#14b8a6; color:#5eead4; padding:9px 8px; font-size:0.78rem;">🧪 Pratique Solo</button>
+              <button class="action-btn" id="btn-open-practice-mp" style="flex:1; border-color:#38bdf8; color:#7dd3fc; padding:9px 8px; font-size:0.78rem;">🌐 Multijoueur</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SOUS-MENU 2 : RÈGLES DU JEU -->
+      <div class="submenu-pane hidden" id="welcome-pane-rules">
+        <div class="rules-grid">
+          <div class="rule-box">
+            <h3>1. Prendre une balle &amp; Marquer</h3>
+            <p>
+              Deux ballons sont tirés au centre. Vous ne pouvez ramasser qu'un ballon <strong>de la même couleur que votre dossard</strong>. Déposez-le dans le cerceau au fond du camp adverse pour gagner <strong>+1 pt</strong>.
+            </p>
+          </div>
+          <div class="rule-box">
+            <h3>2. Intercepter (Assoyage)</h3>
+            <p>
+              Au contact : <strong>Vert (🌿 Feuille) bat Bleu (💧 Goutte)</strong>, <strong>Bleu (💧 Goutte) bat Rouge (🔥 Flamme)</strong>, <strong>Rouge (🔥 Flamme) bat Vert (🌿 Feuille)</strong>. La joueuse faible s'assied jusqu'à la fin de la ronde et lâche son ballon (<strong>+1 pièce d'or / 🪙 PO</strong>).
+            </p>
+          </div>
+          <div class="rule-box">
+            <h3>3. Ultimates (Ronde 2) &amp; Magasin (Ronde 3)</h3>
+            <p>
+              Dès la <strong>Ronde 2</strong> (1x/ronde, sans ballon), appuyez sur <strong>R</strong> pour viser puis <strong>Clic Gauche</strong> : <strong>🔥 Feu</strong> (laser sniper 0.3s), <strong>🌿 Feuille</strong> (sprint x3 2s + mur de branches 4s), <strong>💧 Eau</strong> (large vague). Magasin de pièces d'or (🪙 PO) dès la <strong>Ronde 3</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="flex-wrap: wrap; gap: 10px;">
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          <button class="action-btn" id="btn-welcome-fullscreen">⛶ Mode Plein Écran (F)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE MENU PAUSE (SANS CHOIX DE MODE) -->
+  <div class="modal-overlay hidden" id="pause-modal">
+    <div class="modal-card pause-modal-card">
+      <div class="modal-header pause-modal-header">
+        <button type="button" class="action-btn modal-options-btn" id="btn-pause-options" title="Affichage, performances et personnalisation des contrôles">⚙️ Options</button>
+        <div class="modal-header-title-wrap">
+          <h2>⏸️ Pause</h2>
+          <div id="pause-mode-info" class="pause-mode-info">Mode Solo</div>
+        </div>
+        <div class="pause-header-status">
+          <span id="pause-status-message" class="pause-status-message">Le jeu est arrêté</span>
+          <span id="pause-transport-badge" class="mp-transport-badge hidden"></span>
+          <span id="pause-ping-badge" class="team-tag mp-ping-badge hidden">Ping: -- ms</span>
+        </div>
+      </div>
+
+      <div class="pause-actions-grid">
+        <button type="button" class="action-btn primary" id="btn-pause-resume">↩️ Reprendre (Échap)</button>
+        <button type="button" class="action-btn" id="btn-pause-rules">📖 Règles du Jeu</button>
+        <button type="button" class="action-btn" id="btn-pause-fullscreen">⛶ Mode Plein Écran (F)</button>
+        <button type="button" class="action-btn pause-return-btn" id="btn-pause-return-menu">🏠 Menu principal</button>
+      </div>
+
+      <!-- Règles dépliables en pause -->
+      <div id="pause-rules-panel" class="pause-rules-panel hidden">
+        <div class="rules-grid">
+          <div class="rule-box">
+            <h3>1. Prendre une balle &amp; Marquer</h3>
+            <p>
+              Ramassez un ballon <strong>de la même couleur que votre dossard</strong> et déposez-le dans le cerceau adverse pour gagner <strong>+1 pt</strong> (objectif 7 pts avec 2 d'écart).
+            </p>
+          </div>
+          <div class="rule-box">
+            <h3>2. Intercepter (Assoyage)</h3>
+            <p>
+              <strong>Vert (🌿) &gt; Bleu (💧) &gt; Rouge (🔥) &gt; Vert (🌿)</strong>. La joueuse faible s'assied et lâche son ballon (<strong>+1 🪙 PO</strong>). Même couleur : Règle 1.
+            </p>
+          </div>
+          <div class="rule-box">
+            <h3>3. Ultimates (Ronde 2) &amp; Magasin (Ronde 3)</h3>
+            <p>
+              <strong>[R]</strong> puis <strong>Clic Gauche</strong> : <strong>🔥 Feu</strong> (laser), <strong>🌿 Feuille</strong> (sprint + mur), <strong>💧 Eau</strong> (vague). Magasin dès la <strong>Ronde 3</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raccourcis rapides affichés uniquement en pause de Mode Pratique -->
+      <div id="pause-practice-strip" class="welcome-practice-strip hidden">
+        <span style="font-size:0.78rem; font-weight:800; color:#5eead4;">🧪 Commandes Mode Pratique :</span>
+        <div class="pause-practice-controls">
+          <button type="button" class="action-btn" id="btn-pause-practice-ults" style="padding:5px 10px; font-size:0.75rem; border-color:#38bdf8; color:#7dd3fc;">⚡ Refresh Ultimates</button>
+          <button type="button" class="action-btn" id="btn-pause-practice-standup" style="padding:5px 10px; font-size:0.75rem; border-color:#22c55e; color:#86efac;">🧍 Relever les persos</button>
+          <button type="button" class="action-btn" id="btn-pause-practice-reset" style="padding:5px 10px; font-size:0.75rem;">🔄 Reset Positions</button>
+          <button type="button" class="action-btn" id="btn-pause-practice-shop" style="padding:5px 10px; font-size:0.75rem; border-color:#fbbf24; color:#fde047;">🛒 Magasin (🪙 ∞)</button>
+          <button type="button" class="action-btn" id="btn-pause-practice-reset-powers" style="padding:5px 10px; font-size:0.75rem; border-color:#f87171; color:#fca5a5;">🧹 Reset Pouvoirs</button>
+          <button type="button" class="action-btn" id="btn-pause-practice-swap-team" style="padding:5px 10px; font-size:0.75rem; border-color:#a855f7; color:#d8b4fe;">⇄ Changer de camp</button>
+          <div class="pause-practice-map-wrap">
+            <label for="pause-practice-map-select">🗺️ Arène :</label>
+            <select id="pause-practice-map-select" class="practice-map-select">
+              <option value="lafontaine">⛲ Parc La Fontaine</option>
+              <option value="saint-viateur">🏛️ Parc Saint-Viateur</option>
+              <option value="jarry">🎾 Parc Jarry</option>
+              <option value="mont-royal">⛰️ Mont-Royal</option>
+              <option value="classic" selected>🌳 Arbre-Esprit (Classique)</option>
+              <option value="rift">⚔️ Faille de l'Invocateur (LoL)</option>
+              <option value="tutorial">🌱 Terrain de Base (Dégagé)</option>
+            </select>
+          </div>
+          <button type="button" class="action-btn" id="btn-pause-practice-mp" style="padding:5px 10px; font-size:0.75rem; border-color:#38bdf8; color:#7dd3fc;">🌐 Salon Multijoueur</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE OPTIONS (AFFICHAGE, PERFORMANCES & CONTRÔLES) -->
+  <div class="modal-overlay hidden" id="options-modal">
+    <div class="modal-card options-modal-card">
+      <div class="modal-header">
+        <div class="modal-header-title-wrap">
+          <h2>⚙️ Options</h2>
+          <div class="modal-header-subtitle">Performances, affichage, caméra et configuration des touches</div>
+        </div>
+      </div>
+
+      <!-- Section 1 : Affichage & Performances -->
+      <div class="options-section">
+        <div class="options-section-title">⚡ Affichage &amp; Performances</div>
+        <div class="options-toggles-grid">
+          <button type="button" class="action-btn" id="btn-toggle-low-spec" title="Désactiver les ombres, limiter la résolution/FPS et alléger les effets visuels">⚡ Low Spec : OFF</button>
+          <button type="button" class="action-btn" id="btn-toggle-mobile-mode" title="Activer les contrôles tactiles et adapter l'interface aux petits écrans">📱 Mode Mobile : OFF</button>
+          <button type="button" class="action-btn" id="btn-opt-default-cam" title="Choisir la caméra utilisée par défaut au démarrage d'une partie">🎥 Caméra par défaut : TPS</button>
+          <button type="button" class="action-btn" id="btn-opt-moba-click" title="Choisir le bouton de la souris pour déplacer la joueuse en vue MOBA">🖱️ Déplacement MOBA : Clic Droit</button>
+        </div>
+      </div>
+
+      <!-- Section 2 : Contrôles & Vision -->
+      <div class="options-section">
+        <div class="options-section-title">🕹️ Contrôles &amp; Caméra</div>
+        <div class="controls-settings-bar">
+          <button type="button" class="action-btn active-mode-pill" id="btn-ctrl-edge-pan" title="Déplacer la caméra MOBA lorsque le curseur touche les bords de l'écran">🖥️ Défilement bord d'écran MOBA : ON</button>
+          <button type="button" class="action-btn active-mode-pill" id="btn-ctrl-moba-cursor-lock" title="Verrouille le curseur à l'intérieur de la fenêtre en mode MOBA pour éviter de sortir sur un deuxième écran">🔒 Curseur confiné en MOBA : ON</button>
+          <label class="ctrl-slider-wrap" for="input-ctrl-moba-speed">
+            <span>Vitesse caméra MOBA : <strong id="ctrl-moba-speed-val">100%</strong></span>
+            <input type="range" id="input-ctrl-moba-speed" min="50" max="160" step="10" value="100" />
+          </label>
+          <label class="ctrl-slider-wrap" for="input-ctrl-tps-sens">
+            <span>Sensibilité souris TPS : <strong id="ctrl-tps-sens-val">100%</strong></span>
+            <input type="range" id="input-ctrl-tps-sens" min="50" max="160" step="10" value="100" />
+          </label>
+          <button type="button" class="action-btn" id="btn-reset-controls" style="border-color:#f87171; color:#fca5a5;">🔄 Réinitialiser par défaut</button>
+        </div>
+
+        <div id="controls-rebind-banner" class="controls-rebind-banner hidden">
+          <div>
+            <strong id="controls-rebind-label">Modification...</strong>
+            <span> — Appuyez sur une touche ou cliquez avec la souris • <kbd>Échap</kbd> Annuler • <kbd>Suppr</kbd> / <kbd>Retour</kbd> Vider</span>
+          </div>
+          <button type="button" class="action-btn" id="btn-cancel-rebind" style="padding:4px 10px; font-size:0.75rem;">✖ Annuler</button>
+        </div>
+
+        <div id="controls-bindings-grid" class="controls-bindings-grid"></div>
+
+        <div class="rules-grid" style="margin-top:12px;">
+          <div class="rule-box">
+            <h3>🦅 Caméra MOBA Libre (Style LoL)</h3>
+            <p>
+              • <strong>Bords d’écran, Flèches ou Minimap</strong> : déplacer la caméra librement sur la carte.<br/>
+              • <strong>Y</strong> : verrouiller / déverrouiller la caméra • <strong>Tab / Clic Milieu</strong> : recentrer ponctuellement • <strong>M</strong> : basculer TPS ↔ MOBA.<br/>
+              • <strong>Molette</strong> : zoomer / dézoomer • <strong>Curseur</strong> : viser Dash, Lancer et Ultimate.
+            </p>
+          </div>
+          <div class="rule-box">
+            <h3>👁️ Vision &amp; Arènes Distinctes</h3>
+            <p>
+              • <strong>Canopée (Classique)</strong> &amp; <strong>Sommet du Mont-Royal</strong> : vue étendue à longue portée.<br/>
+              • Les obstacles, chalets, gazebos, collines et hautes herbes bloquent la ligne de vue sur le terrain et la minimap !
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button type="button" class="action-btn primary" id="btn-options-close">✔ Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE CHOIX D'ARÈNE (APRÈS SÉLECTION DU MODE) -->
+  <div class="modal-overlay hidden" id="arena-modal">
+    <div class="modal-card arena-modal-card">
+      <div class="modal-header">
+        <div class="modal-header-title-wrap">
+          <h2 id="arena-modal-title">🏞️ Choisir une Arène</h2>
+          <div id="arena-modal-subtitle" class="arena-modal-subtitle">Sélectionnez le terrain avant de lancer la partie</div>
+        </div>
+        <span id="arena-map-summary" class="map-summary-badge">🌳 Arbre-Esprit (Classique)</span>
+      </div>
+
+      <div class="map-selector-section" style="margin-bottom:0;">
+        <div class="map-cards-grid" id="arena-map-grid">
+          <button type="button" class="map-pick-btn" data-map="lafontaine" data-map-id="lafontaine">
+            <span class="map-pick-title">⛲ Parc La Fontaine</span>
+            <span class="map-pick-meta">Étang horizontal, fontaines &amp; pont N-S</span>
+          </button>
+          <button type="button" class="map-pick-btn" data-map="saint-viateur" data-map-id="saint-viateur">
+            <span class="map-pick-title">🏛️ Parc Saint-Viateur</span>
+            <span class="map-pick-meta">Chalet sur île centrale &amp; 2 ponts E-O</span>
+          </button>
+          <button type="button" class="map-pick-btn" data-map="jarry" data-map-id="jarry">
+            <span class="map-pick-title">🎾 Parc Jarry</span>
+            <span class="map-pick-meta">Terrain plat, Gazebo &amp; arbres dispersés</span>
+          </button>
+          <button type="button" class="map-pick-btn" data-map="mont-royal" data-map-id="mont-royal">
+            <span class="map-pick-title">⛰️ Mont-Royal</span>
+            <span class="map-pick-meta">Grande colline, Croix &amp; lac au sommet</span>
+          </button>
+          <button type="button" class="map-pick-btn active" data-map="classic" data-map-id="classic">
+            <span class="map-pick-title">🌳 Arbre-Esprit</span>
+            <span class="map-pick-meta">Arène Classique • Canopée H 5.6u</span>
+          </button>
+          <button type="button" class="map-pick-btn" data-map="rift" data-map-id="rift">
+            <span class="map-pick-title">⚔️ Faille LoL</span>
+            <span class="map-pick-meta">3 Lanes, Bases en coin &amp; Rivière traversable</span>
+          </button>
+          <button type="button" class="map-pick-btn" data-map="tutorial" data-map-id="tutorial">
+            <span class="map-pick-title">🌱 Terrain de Base</span>
+            <span class="map-pick-meta">Petite arène dégagée sans obstacle</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mp-map-bar" id="arena-ruleset-bar" style="margin-top:12px;">
+        <span style="font-size:0.8rem; font-weight:800; color:#e2e8f0;">⚖️ Règles :</span>
+        <div class="mp-map-pills">
+          <button type="button" class="mp-map-btn active" id="btn-arena-rule-standard">⚡ Standard (Ultimates + Évos)</button>
+          <button type="button" class="mp-map-btn" id="btn-arena-rule-vanilla">🍦 Vanille (Sans Ult, Dash+, Évos Dash ni Outils)</button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="action-btn" id="btn-arena-back">⬅️ Retour</button>
+        <button type="button" class="action-btn primary" id="btn-arena-launch">🚀 Lancer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE SALON MULTIJOUEUR -->
+  <div class="modal-overlay hidden" id="mp-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>🌐 Salon Multijoueur</h2>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span class="mp-transport-badge hidden" id="mp-transport-badge"></span>
+          <span class="team-tag mp-ping-badge" id="mp-ping-badge">Ping: -- ms</span>
+          <span class="team-tag ally" id="mp-status-badge">Non connecté</span>
+        </div>
+      </div>
+      <p class="modal-subtitle">
+        Hébergez un salon pour obtenir un code à 4 chiffres, ou entrez le code d'un ami pour le rejoindre directement en ligne ou entre deux onglets.
+      </p>
+
+      <!-- Barre de création / connexion au salon -->
+      <div class="mp-connect-bar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="mp-player-name" style="font-size:0.82rem; font-weight:700;">Pseudo :</label>
+          <input type="text" id="mp-player-name" class="mp-input" value="Joueuse 1" style="width:130px;" />
+        </div>
+
+        <button class="action-btn primary" id="btn-host-room">🏠 Créer un salon (Hôte)</button>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="text" id="mp-room-input" class="mp-input" placeholder="Code (ex: 4821)" style="width:135px; text-transform:uppercase;" />
+          <button class="action-btn" id="btn-join-room" style="border-color:#38bdf8; color:#38bdf8;">🔗 Rejoindre</button>
+        </div>
+      </div>
+
+      <!-- Bannière du salon actif -->
+      <div class="mp-room-banner hidden" id="mp-room-banner">
+        <div>
+          <span style="font-size:0.82rem; color:#cbd5e1;">Code du salon à partager :</span>
+          <span class="mp-room-code" id="mp-room-code-display">----</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="mp-peer-count" style="font-size:0.82rem; color:#fde047; font-weight:700;">1 joueur dans le salon</span>
+          <button class="action-btn" id="btn-copy-code" style="padding:6px 12px; font-size:0.76rem;">📋 Copier le code</button>
+          <button class="action-btn" id="btn-leave-room" style="padding:6px 12px; font-size:0.76rem; border-color:#ef4444; color:#fca5a5;">🔌 Quitter</button>
+        </div>
+      </div>
+
+      <!-- Sélecteur de carte synchronisé pour le salon P2P -->
+      <div class="mp-map-bar">
+        <span style="font-size:0.8rem; font-weight:800; color:#e2e8f0;">🏞️ Carte du salon :</span>
+        <div class="mp-map-pills" id="mp-map-grid">
+          <button type="button" class="mp-map-btn" data-map-id="lafontaine">⛲ La Fontaine</button>
+          <button type="button" class="mp-map-btn" data-map-id="saint-viateur">🏛️ Saint-Viateur</button>
+          <button type="button" class="mp-map-btn" data-map-id="jarry">🎾 Jarry</button>
+          <button type="button" class="mp-map-btn" data-map-id="mont-royal">⛰️ Mont-Royal</button>
+          <button type="button" class="mp-map-btn active" data-map-id="classic">🌳 Classique</button>
+          <button type="button" class="mp-map-btn" data-map-id="rift">⚔️ Faille LoL</button>
+          <button type="button" class="mp-map-btn" data-map-id="tutorial">🌱 Base (Tuto)</button>
+        </div>
+        <span id="mp-map-lock-hint" style="font-size:0.74rem; color:#94a3b8; margin-left:auto;">Modifiable par l'Hôte</span>
+      </div>
+
+      <!-- Choix du mode P2P : Match normal (avec IA) ou Pratique "Un tour pour rien" (sans IA) -->
+      <div class="mp-map-bar" id="mp-game-mode-bar">
+        <span style="font-size:0.8rem; font-weight:800; color:#e2e8f0;">🎮 Mode du salon :</span>
+        <div class="mp-map-pills" id="mp-mode-pills">
+          <button type="button" class="mp-map-btn active" id="btn-mp-mode-match" data-mp-mode="multiplayer">🏆 Match 7 pts (Avec IA)</button>
+          <button type="button" class="mp-map-btn" id="btn-mp-mode-practice" data-mp-mode="practice">🧪 Pratique "Tour pour rien" (Sans IA)</button>
+        </div>
+        <span id="mp-mode-hint" style="font-size:0.74rem; color:#94a3b8; margin-left:auto;">L'IA comble les postes libres</span>
+      </div>
+
+      <!-- Choix des règles P2P : Standard ou Vanille -->
+      <div class="mp-map-bar" id="mp-ruleset-bar">
+        <span style="font-size:0.8rem; font-weight:800; color:#e2e8f0;">⚖️ Règles :</span>
+        <div class="mp-map-pills">
+          <button type="button" class="mp-map-btn active" id="btn-mp-rule-standard">⚡ Standard</button>
+          <button type="button" class="mp-map-btn" id="btn-mp-rule-vanilla">🍦 Vanille</button>
+        </div>
+        <span id="mp-ruleset-hint" style="font-size:0.74rem; color:#94a3b8; margin-left:auto;">⚡ Standard : Ultimates (R2), Évos Dash, Dash+ &amp; Outils actifs</span>
+      </div>
+
+      <!-- Choix de l'équipe et du rôle (1v1 Capitaines ou jusqu'à 3v3) -->
+      <div class="mp-teams-grid">
+        <div class="mp-team-box ally">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span class="team-tag ally">Équipe Or (Camp Gauche)</span>
+            <span style="font-size:0.75rem; color:#94a3b8;">Marque à droite (+X)</span>
+          </div>
+          <div id="mp-slots-ally"></div>
+        </div>
+
+        <div class="mp-team-box enemy">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span class="team-tag enemy">Équipe Violette (Camp Droit)</span>
+            <span style="font-size:0.75rem; color:#94a3b8;">Marque à gauche (-X)</span>
+          </div>
+          <div id="mp-slots-enemy"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-mp-back">⬅️ Retour au menu</button>
+        <span id="mp-footer-hint" style="font-size:0.8rem; color:#94a3b8;">Les postes non occupés par un humain sont joués par l'IA.</span>
+        <button class="action-btn primary" id="btn-mp-start" disabled>🚀 Lancer la Partie Multijoueur (Hôte)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE PHASE PRÉPARATOIRE & MAGASIN (RONDE 3+) -->
+  <div class="modal-overlay hidden" id="prep-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="prep-modal-title">Phase Préparatoire — Ronde 1</h2>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <span class="color-badge unknown" id="prep-timer-badge">⏱️ 30s</span>
+          <span class="team-tag ally" id="prep-pe-display">Or : 0 🪙 PO</span>
+        </div>
+      </div>
+
+      <p class="modal-subtitle" id="prep-modal-desc">
+        Observez la couleur des <strong>2 ballons</strong> tirés sur la ligne centrale et répartissez secrètement vos dossards dans le dos de vos 3 joueuses (positionnées en triangle équilatéral).
+      </p>
+
+      <!-- Aperçu des 2 balles au centre -->
+      <div class="balls-preview-bar">
+        <div class="ball-preview-item">
+          <span>Ballon Couloir Gauche (en face de G) :</span>
+          <span class="color-badge" id="preview-ball-top">Vert (🌿)</span>
+        </div>
+        <div class="ball-preview-item">
+          <span>Ballon Couloir Droit (en face de D) :</span>
+          <span class="color-badge" id="preview-ball-bottom">Rouge (🔥)</span>
+        </div>
+      </div>
+
+      <!-- Navigation par Sous-Menus de la Phase Préparatoire -->
+      <div class="submenu-tabs" id="prep-submenu-tabs">
+        <button type="button" class="submenu-tab-btn active" id="btn-prep-tab-dossards" data-prep-tab="dossards">🎽 1. Dossards (G / C / D)</button>
+        <button type="button" class="submenu-tab-btn" id="btn-prep-tab-individual" data-prep-tab="individual">⚡ 2. Pouvoirs Individuels</button>
+        <button type="button" class="submenu-tab-btn" id="btn-prep-tab-collective" data-prep-tab="collective">🛡️ 3. Bonus d'Équipe</button>
+        <button type="button" class="submenu-tab-btn" id="btn-prep-tab-all" data-prep-tab="all">📋 Tout voir</button>
+      </div>
+
+      <!-- SOUS-MENU DOSSARDS : Répartition des dossards pour G, C, D -->
+      <div id="prep-dossards-section">
+        <div class="prep-roles-grid">
+          <div class="prep-role-card" id="prep-card-G" data-prep-role="G">
+            <div class="prep-role-header">
+              <h3>Joueuse Gauche (G)</h3>
+            </div>
+            <div class="role-desc">Placée à gauche face au ballon du haut</div>
+            <div class="color-picker-btns" id="color-picker-G" data-role="G">
+              <button class="color-pick-btn green" data-color="green">Vert (🌿 Feuille)</button>
+              <button class="color-pick-btn red" data-color="red">Rouge (🔥 Flamme)</button>
+              <button class="color-pick-btn blue" data-color="blue">Bleu (💧 Goutte)</button>
+            </div>
+            <div id="power-tags-G" style="margin-top:8px; font-size:0.74rem; color:#38bdf8;"></div>
+          </div>
+
+          <div class="prep-role-card" id="prep-card-C" data-prep-role="C">
+            <div class="prep-role-header">
+              <h3>Joueuse Centre (C)</h3>
+            </div>
+            <div class="role-desc">Placée en retrait devant votre cerceau</div>
+            <div class="color-picker-btns" id="color-picker-C" data-role="C">
+              <button class="color-pick-btn green" data-color="green">Vert (🌿 Feuille)</button>
+              <button class="color-pick-btn red" data-color="red">Rouge (🔥 Flamme)</button>
+              <button class="color-pick-btn blue" data-color="blue">Bleu (💧 Goutte)</button>
+            </div>
+            <div id="power-tags-C" style="margin-top:8px; font-size:0.74rem; color:#38bdf8;"></div>
+          </div>
+
+          <div class="prep-role-card" id="prep-card-D" data-prep-role="D">
+            <div class="prep-role-header">
+              <h3>Joueuse Droite (D)</h3>
+            </div>
+            <div class="role-desc">Placée à droite face au ballon du bas</div>
+            <div class="color-picker-btns" id="color-picker-D" data-role="D">
+              <button class="color-pick-btn green" data-color="green">Vert (🌿 Feuille)</button>
+              <button class="color-pick-btn red" data-color="red">Rouge (🔥 Flamme)</button>
+              <button class="color-pick-btn blue" data-color="blue">Bleu (💧 Goutte)</button>
+            </div>
+            <div id="power-tags-D" style="margin-top:8px; font-size:0.74rem; color:#38bdf8;"></div>
+          </div>
+        </div>
+
+        <div id="stock-warning" style="text-align:center; font-size:0.82rem; color:#fde047; margin-bottom:8px;">
+          Stock de dossards : 1 Vert (🌿 Feuille), 1 Rouge (🔥 Flamme), 1 Bleu (💧 Goutte)
+        </div>
+      </div>
+
+      <!-- SOUS-MENU MAGASIN (Actif dès la Ronde 3, ou consultable par onglet) -->
+      <div class="shop-section hidden" id="shop-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 style="font-size:1.02rem; color:#fbbf24;" id="shop-category-heading">🛒 Magasin de Pouvoirs (Pièces d'or 🪙 PO)</h3>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span id="shop-unlock-note" style="font-size:0.78rem; color:#94a3b8;">Ouvert dès la Ronde 3</span>
+            <button type="button" class="action-btn hidden" id="btn-shop-reset-powers" title="Réinitialiser les pouvoirs, évolutions et dossards achetés" style="padding:5px 10px; font-size:0.76rem; border-color:#f87171; color:#fca5a5;">🧹 Reset Pouvoirs</button>
+          </div>
+        </div>
+        <div class="shop-evo-status-bar" id="shop-evo-status-bar"></div>
+        <div class="shop-grid" id="shop-items-grid"></div>
+      </div>
+
+      <div class="modal-footer">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button type="button" class="action-btn" id="btn-prep-open-shop" style="border-color:#fbbf24; color:#fde047;">🛒 Aller au Magasin →</button>
+          <span style="font-size:0.78rem; color:#94a3b8;">Départ en triangle équilatéral.</span>
+        </div>
+        <button class="action-btn primary" id="btn-confirm-prep">✅ Au jeu ! (Lancer la ronde)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE FIN DE RONDE / FIN DE PARTIE -->
+  <div class="modal-overlay hidden" id="round-end-modal">
+    <div class="modal-card" style="max-width: 560px; text-align: center;">
+      <div class="modal-header" style="justify-content: center;">
+        <h2 id="end-modal-title">Fin de la Ronde</h2>
+      </div>
+      <p class="modal-subtitle" id="end-modal-summary"></p>
+      <div id="end-modal-details" style="margin-bottom: 20px; font-size: 0.9rem; color: #fde047;"></div>
+      <div class="modal-footer" style="justify-content: center; gap: 14px;">
+        <button class="action-btn primary" id="btn-next-round">▶️ Ronde Suivante</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js r128 & PeerJS (local standalone) -->
+  <script src="three.min.js"></script>
+  <script src="peerjs.min.js"></script>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
