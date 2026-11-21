@@ -702,13 +702,13 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
   bottom: 220px;
 }
 
-/* PANNEAU GUIDÉ COMPACT (COIN BAS GAUCHE) : SÉQUENCE TUTORIEL (4 ÉTAPES) */
+/* PANNEAU GUIDÉ COMPACT (COIN BAS GAUCHE) : SÉQUENCE TUTORIEL (8 ÉTAPES) */
 #tutorial-sequence-hud {
   position: fixed;
   bottom: 14px;
   left: 16px;
   z-index: 13;
-  width: min(274px, calc(100vw - 32px));
+  width: min(296px, calc(100vw - 32px));
   pointer-events: auto;
   background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(8px);
@@ -727,7 +727,7 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
 
 .tut-steps-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 3px;
 }
 
@@ -1459,6 +1459,12 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
+
+.shop-item.tut-shop-focus {
+  border-color: rgba(250, 204, 21, 0.85);
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.22);
 }
 
 .shop-item-info h4 {

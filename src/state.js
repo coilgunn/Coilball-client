@@ -37,6 +37,18 @@ export const COLORS = {
 };
 export const COLOR_KEYS = ['green', 'red', 'blue'];
 
+export const TUTORIAL_TOTAL_STEPS = 8;
+export const TUTORIAL_STEPS = {
+  MOVEMENT: 1,
+  GOAL: 2,
+  PASS: 3,
+  TRIANGLE: 4,
+  RULE1: 5,
+  TOOLS: 6,
+  ULTIMATE: 7,
+  MOBA: 8
+};
+
 export const DEFAULT_FIELD_CONFIG = {
   width: 210,      // X de -105 à +105
   depth: 136,      // Z de -68 à +68

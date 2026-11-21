@@ -4,6 +4,8 @@
 
 import {
   COLORS,
+  TUTORIAL_TOTAL_STEPS,
+  TUTORIAL_STEPS,
   FIELD,
   DASH_COOLDOWN,
   PASS_CHARGE_SPEC,
@@ -981,7 +983,7 @@ export function setCameraMode(mode, silent = false) {
       state.mobaAimWorld = raycastScreenToWorld(state.mouseClientX, state.mouseClientY);
     }
     updateMobaVirtualCursorUI();
-    if (state.mode === 'tutorial' && state.tutorialStep === 5) {
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
       ctx.api.markTutorialCheck('mobaToggled');
     }
     if (!silent) {
@@ -1559,7 +1561,7 @@ export function updateMobileTouchHUD() {
   const shopBtn = document.getElementById('mob-btn-shop');
   if (shopBtn) {
     const canOpenShop =
-      (state.mode === 'tutorial' && state.tutorialStep === 3) || state.mode === 'practice';
+      (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS) || state.mode === 'practice';
     shopBtn.classList.toggle('hidden', !canOpenShop);
   }
 
@@ -1790,7 +1792,7 @@ function bindWildRiftAimButton(btnEl, actionType) {
       if (p && canPlayerUseUltimate(p, false)) {
         state.ultPreviewActive = true;
         state.ultPreviewAimAngle = mobileInput.aimAngle;
-        if (state.mode === 'tutorial' && state.tutorialStep === 4) {
+        if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
           ctx.api.markTutorialCheck?.('ultAimed');
         }
         updateUltHudWidget();
@@ -2016,7 +2018,7 @@ function bindWildRiftAimButton(btnEl, actionType) {
     }
 
     if (actionType === 'ult') {
-      if (state.mode === 'tutorial' && state.tutorialStep === 4) {
+      if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
         ctx.api.markTutorialCheck?.('ultAimed');
       }
       confirmUltimateTrigger(finalAngle);
@@ -2116,7 +2118,7 @@ function initMobileAndDeviceControls() {
     } else {
       mobileInput.joyRight = nx;
       mobileInput.joyForward = ny;
-      if (state.cameraMode === 'aerial' && state.mode === 'tutorial' && state.tutorialStep === 5) {
+      if (state.cameraMode === 'aerial' && state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
         ctx.api.markTutorialCheck?.('mobaToggled');
         ctx.api.markTutorialCheck?.('mobaMoved');
       }
@@ -2648,11 +2650,18 @@ export function selectControlledRole(role, options = {}) {
   if (state.passCharge && state.passCharge.active) {
     ctx.api.cancelPassCharge?.();
   }
-  if (state.mode === 'tutorial' && state.tutorialStep === 1 && !options.silent && prevRole !== role) {
+  if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOVEMENT && !options.silent && prevRole !== role) {
     if (!state.tutorialChecklist.switchedRole && role !== 'G') {
       ctx.api.markTutorialCheck('switchedRole');
     } else if (state.tutorialChecklist.switchedRole && role === 'G') {
       ctx.api.markTutorialCheck('returnedToFirstRole');
+    }
+  } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.RULE1 && !options.silent && prevRole !== role) {
+    if (role === 'C') {
+      ctx.api.markTutorialCheck('rule1Switched');
+      showToast('💧 <strong>Bon élément (💧 > 🔥) !</strong> Allez intercepter <strong>Adv C (🔥)</strong> pour libérer G !', 3600);
+    } else if (role === 'D' && !state.tutorialChecklist.rule1Broken) {
+      showToast('⚠️ <strong>Mauvais élément :</strong> D est Feuille (🌿) et perd contre 🔥 ! Seule <strong>💧 C</strong> (💧 > 🔥) peut débloquer la Règle 1 !', 3800);
     }
   }
   const me = mp.members.find((m) => m.peerId === mp.myPeerId);
@@ -3792,13 +3801,13 @@ export function updateFloatingLabels() {
       } else {
         tutOverheadEl.classList.add('hidden');
       }
-    } else if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === 5 && !isMenuOpen() && controlled) {
+    } else if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === TUTORIAL_STEPS.MOBA && !isMenuOpen() && controlled) {
       _tmpProjVec.set(controlled.pos.x, controlled.pos.y + 2.95, controlled.pos.z);
       _tmpProjVec.project(camera);
       if (_tmpProjVec.z <= 1) {
         const ohX = Math.round(Math.max(110, Math.min(window.innerWidth - 110, _tmpProjVec.x * halfW + halfW)) * 2) / 2;
         const ohY = Math.round(Math.max(104, -(_tmpProjVec.y * halfH) + halfH - 28) * 2) / 2;
-        const doneMsg = '🎉 Bravo ! Tutoriel terminé — retour au menu...';
+        const doneMsg = '🎉 Bravo ! Tutoriel terminé — passage en Mode Pratique...';
         tutOverheadEl.classList.remove('hidden');
         tutOverheadEl.style.left = `${ohX}px`;
         tutOverheadEl.style.top = `${ohY}px`;
@@ -3838,7 +3847,7 @@ export function updateTopHUD() {
 
   document.getElementById('round-label').textContent =
     state.mode === 'tutorial'
-      ? `TUTORIEL (${Math.min(5, Math.max(1, state.tutorialStep || 1))}/5)`
+      ? `TUTORIEL (${Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, state.tutorialStep || 1))}/${TUTORIAL_TOTAL_STEPS})`
       : state.mode === 'practice'
       ? mp.enabled
         ? `PRATIQUE MULTI • SALON ${mp.roomCode}`
@@ -5186,7 +5195,7 @@ function bindUIButtons() {
       pill.onclick = () => {
         if (state.mode !== 'tutorial') return;
         const step = Number(pill.getAttribute('data-tut-step'));
-        if (step >= 1 && step <= 5) ctx.api.enterTutorialStep(step);
+        if (step >= 1 && step <= TUTORIAL_TOTAL_STEPS) ctx.api.enterTutorialStep(step);
       };
     });
   }
@@ -5218,7 +5227,7 @@ function bindUIButtons() {
   if (btnTutNext) {
     btnTutNext.onclick = () => {
       if (state.mode !== 'tutorial') return;
-      if (state.tutorialStep < 5) {
+      if (state.tutorialStep < TUTORIAL_TOTAL_STEPS) {
         ctx.api.enterTutorialStep(state.tutorialStep + 1);
       } else {
         ctx.api.completeTutorialToPractice?.(true);
@@ -5465,7 +5474,7 @@ function bindUIButtons() {
         const pos = minimapClientToWorld(e.clientX, e.clientY);
         if (pos) {
           applyMobaMoveCommand({ x: pos.wx, z: pos.wz, onCanopy: false }, true);
-          if (state.mode === 'tutorial' && state.tutorialStep === 5) {
+          if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
             ctx.api.markTutorialCheck('mobaToggled');
             ctx.api.markTutorialCheck('mobaMoved');
           }
@@ -5478,7 +5487,7 @@ function bindUIButtons() {
         const pos = minimapClientToWorld(e.clientX, e.clientY);
         if (pos) {
           applyMobaMoveCommand({ x: pos.wx, z: pos.wz, onCanopy: false }, true);
-          if (state.mode === 'tutorial' && state.tutorialStep === 5) {
+          if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
             ctx.api.markTutorialCheck('mobaToggled');
             ctx.api.markTutorialCheck('mobaMoved');
           }
@@ -6177,7 +6186,7 @@ function registerUIGlobalListeners() {
       if (
         matchesControl('openShop', e.code) &&
         !e.repeat &&
-        ((state.mode === 'tutorial' && state.tutorialStep === 3) || state.mode === 'practice')
+        ((state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS) || state.mode === 'practice')
       ) {
         e.preventDefault();
         ctx.api.openShopShortcut();
@@ -6387,7 +6396,7 @@ function registerUIGlobalListeners() {
             const pos = minimapClientToWorld(ptrX, ptrY);
             if (pos) {
               applyMobaMoveCommand({ x: pos.wx, z: pos.wz, onCanopy: false }, true);
-              if (state.mode === 'tutorial' && state.tutorialStep === 5) {
+              if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
                 ctx.api.markTutorialCheck('mobaToggled');
                 ctx.api.markTutorialCheck('mobaMoved');
               }
@@ -6445,7 +6454,7 @@ function registerUIGlobalListeners() {
         state.mobaRightMouseDown = true;
         if (hit) {
           applyMobaMoveCommand(hit, true);
-          if (state.mode === 'tutorial' && state.tutorialStep === 5) {
+          if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
             ctx.api.markTutorialCheck('mobaToggled');
             ctx.api.markTutorialCheck('mobaMoved');
           }

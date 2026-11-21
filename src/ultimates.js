@@ -2,7 +2,7 @@
 // COILBALL 3D — ULTIMATES ÉLÉMENTAIRES (FEU, FEUILLE, EAU & PREVIEW 3D)
 // ============================================================================
 
-import { FIELD, COLORS, state, mp, ctx } from './state.js';
+import { FIELD, COLORS, TUTORIAL_TOTAL_STEPS, TUTORIAL_STEPS, state, mp, ctx } from './state.js';
 import { scene, players, getPlayer, spawnParticles } from './render3d.js';
 import {
   CANOPY_SPEC,
@@ -145,7 +145,7 @@ export function isUltimateUnlocked() {
   return (
     state.round >= 2 ||
     state.mode === 'practice' ||
-    (state.mode === 'tutorial' && state.tutorialStep >= 4)
+    (state.mode === 'tutorial' && state.tutorialStep >= TUTORIAL_STEPS.ULTIMATE)
   );
 }
 
@@ -174,7 +174,7 @@ export function canPlayerUseUltimate(p, showReasonToast = false) {
   if (!isUltimateUnlocked()) {
     if (showReasonToast) {
       if (state.mode === 'tutorial') {
-        ctx.api.showToast('🔒 <strong>Ultimate verrouillé</strong> : il sera débloqué à l’<strong>étape 4/5</strong> du tutoriel !', 2400);
+        ctx.api.showToast(`🔒 <strong>Ultimate verrouillé</strong> : il sera débloqué à l’<strong>étape ${TUTORIAL_STEPS.ULTIMATE}/${TUTORIAL_TOTAL_STEPS}</strong> du tutoriel !`, 2400);
       } else {
         ctx.api.showToast('🔒 <strong>Ultimate verrouillé</strong> : disponible à partir de la <strong>2e ronde</strong> (ou en mode Un tour pour rien) !', 2400);
       }
@@ -244,7 +244,7 @@ export function toggleUltimatePreview() {
     `${meta.icon} <strong>Visée Ultimate : ${meta.name}</strong> — <strong>Clic Gauche</strong> pour déclencher (<strong>R</strong> pour annuler)`,
     2600
   );
-  if (state.mode === 'tutorial' && state.tutorialStep === 4) {
+  if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
     ctx.api.markTutorialCheck('ultAimed');
   }
   updateUltHudWidget();
@@ -523,7 +523,7 @@ export function triggerPlayerUltimate(p, aimAngle = p.facingAngle, fromNetwork =
 
   if (p.team === state.myTeam && p.role === state.controlledRole) {
     ctx.api.triggerGamepadRumble(210, 0.75, 0.85);
-    if (state.mode === 'tutorial' && state.tutorialStep === 4) {
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
       ctx.api.markTutorialCheck('ultAimed');
       ctx.api.markTutorialCheck('ultFired');
     }
@@ -2826,7 +2826,7 @@ export function updateUltHudWidget() {
     if (subEl) {
       subEl.textContent =
         state.mode === 'tutorial'
-          ? '🔒 Débloqué à l’étape 4/5 du tutoriel'
+          ? `🔒 Débloqué à l’étape ${TUTORIAL_STEPS.ULTIMATE}/${TUTORIAL_TOTAL_STEPS} du tutoriel`
           : '🔒 Débloqué à partir de la Ronde 2';
     }
     return;

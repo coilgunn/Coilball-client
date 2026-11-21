@@ -5,6 +5,8 @@
 import {
   COLORS,
   COLOR_KEYS,
+  TUTORIAL_TOTAL_STEPS,
+  TUTORIAL_STEPS,
   DEFAULT_FIELD_CONFIG,
   FIELD,
   DASH_DURATION,
@@ -530,7 +532,7 @@ export function updatePrepConfirmButtonUI() {
 }
 
 export function isShopAvailable() {
-  return state.round >= 3 || state.mode === 'practice' || (state.mode === 'tutorial' && state.tutorialStep >= 3);
+  return state.round >= 3 || state.mode === 'practice' || (state.mode === 'tutorial' && state.tutorialStep >= TUTORIAL_STEPS.TOOLS);
 }
 
 export function setupRoundPrep() {
@@ -656,7 +658,7 @@ export function closePracticeShopAndReturn() {
 }
 
 export function openShopShortcut() {
-  if (state.mode === 'tutorial' && state.tutorialStep === 3) {
+  if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS) {
     openTutorialShopStep3();
   } else if (state.mode === 'practice') {
     openPracticeShop();
@@ -677,7 +679,7 @@ export function openPrepModal(options = {}) {
 
   document.getElementById('prep-modal-title').textContent =
     state.mode === 'tutorial'
-      ? "Magasin Pièces d'or (🪙 PO) — Tutoriel Étape 3"
+      ? "Magasin Pièces d'or (🪙 PO) — Tutoriel Étape 6 (Outils)"
       : state.mode === 'practice'
       ? preservePhase
         ? `🛒 Magasin Pratique (Pièces d'or ∞) — ${teamLabel}`
@@ -898,9 +900,6 @@ function applyTeamCollectivePurchase(teamKey, itemKey) {
       const pl = getPlayer(teamKey, r);
       if (pl) syncPlayerPowerVisuals(pl, 0);
     });
-    if (state.mode === 'tutorial' && state.tutorialStep === 3 && teamKey === state.myTeam) {
-      markTutorialCheck('peSpent');
-    }
     return true;
   }
   if (itemKey === 'teamJump') {
@@ -913,9 +912,6 @@ function applyTeamCollectivePurchase(teamKey, itemKey) {
     });
     if (teamKey === state.myTeam) {
       updateMobileTouchHUD();
-    }
-    if (state.mode === 'tutorial' && state.tutorialStep === 3 && teamKey === state.myTeam) {
-      markTutorialCheck('peSpent');
     }
     return true;
   }
@@ -1133,12 +1129,20 @@ export function renderShopItems() {
   renderShopEvoStatusBar();
   shopGrid.innerHTML = '';
 
+  const isTutToolStep = state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS;
   const freeBasicsNote = document.createElement('div');
-  freeBasicsNote.style.cssText =
-    'grid-column:1 / -1; background:rgba(14,165,233,0.12); border:1px solid rgba(56,189,248,0.35); border-radius:10px; padding:7px 11px; font-size:0.75rem; color:#bae6fd; line-height:1.35;';
-  freeBasicsNote.innerHTML = state.vanillaMode
-    ? '🍦 <strong>Mode Vanille :</strong> Ultimates, évolutions de Dash, Dash+ et Outils désactivés. Débloquez 🎯 <strong>Passe</strong> (<code>[E]</code>), ⚡ <strong>Se relever</strong> (<code>[E]</code>), 🎽 <strong>Dossards</strong> et 🦘 <strong>Saut</strong> (<code>[Espace]</code>) dès la Ronde 3 !'
-    : 'ℹ️ <strong>Actifs gratuitement dès la Ronde 1 :</strong> 🎯 <strong>Passe chargée / Tir libre</strong> (<code>[E]</code>) et 📝 <strong>Papier / Marqueurs</strong> (les dos adverses vus sont mémorisés automatiquement).';
+  if (isTutToolStep) {
+    freeBasicsNote.style.cssText =
+      'grid-column:1 / -1; background:rgba(245,158,11,0.16); border:1px solid rgba(250,204,21,0.65); border-radius:10px; padding:8px 11px; font-size:0.78rem; color:#fef08a; line-height:1.35;';
+    freeBasicsNote.innerHTML =
+      '🛠️ <strong>Tutoriel Étape 6/8 — Outils :</strong> Achetez un <strong>Outil</strong> (📡 Balise, 🧱 Mur 3m ou ⚡ Tapis — 3 🪙 PO) pour votre joueuse <strong>G</strong>, puis déployez-le sur le terrain avec <strong>[E]</strong> (sans balle) !';
+  } else {
+    freeBasicsNote.style.cssText =
+      'grid-column:1 / -1; background:rgba(14,165,233,0.12); border:1px solid rgba(56,189,248,0.35); border-radius:10px; padding:7px 11px; font-size:0.75rem; color:#bae6fd; line-height:1.35;';
+    freeBasicsNote.innerHTML = state.vanillaMode
+      ? '🍦 <strong>Mode Vanille :</strong> Ultimates, évolutions de Dash, Dash+ et Outils désactivés. Débloquez 🎯 <strong>Passe</strong> (<code>[E]</code>), ⚡ <strong>Se relever</strong> (<code>[E]</code>), 🎽 <strong>Dossards</strong> et 🦘 <strong>Saut</strong> (<code>[Espace]</code>) dès la Ronde 3 !'
+      : 'ℹ️ <strong>Actifs gratuitement dès la Ronde 1 :</strong> 🎯 <strong>Passe chargée / Tir libre</strong> (<code>[E]</code>) et 📝 <strong>Papier / Marqueurs</strong> (les dos adverses vus sont mémorisés automatiquement).';
+  }
   shopGrid.appendChild(freeBasicsNote);
 
   const categorySections = [
@@ -1163,7 +1167,7 @@ export function renderShopItems() {
 
     itemsInSec.forEach((pw) => {
       const div = document.createElement('div');
-      div.className = 'shop-item';
+      div.className = 'shop-item' + (isTutToolStep && pw.category === 'tool' ? ' tut-shop-focus' : '');
       div.setAttribute('data-shop-cat', 'individual');
       div.innerHTML = `
         <div class="shop-item-info">
@@ -1178,6 +1182,7 @@ export function renderShopItems() {
         const rolePwr = myMeta.powers[r];
         const owned = hasRoleEvolutionItem(rolePwr, pw);
         const blocked = !owned && isRoleEvolutionSlotBlocked(rolePwr, pw);
+        const lockedByTut = isTutToolStep && (pw.category !== 'tool' || r !== 'G');
         const btn = document.createElement('button');
         btn.className =
           'shop-role-btn' +
@@ -1191,12 +1196,14 @@ export function renderShopItems() {
         } else if (blocked && pw.slotType === 'toolEvo' && rolePwr.toolEvo && TOOL_EVO_META[rolePwr.toolEvo]) {
           blockedTitle = `Joueuse ${r} possède déjà ${TOOL_EVO_META[rolePwr.toolEvo].shortLabel} (1 max/perso)`;
         }
-        btn.title = owned
+        btn.title = lockedByTut
+          ? 'Étape Outils : achetez un Outil (📡 / 🧱 / ⚡) pour G !'
+          : owned
           ? `Joueuse ${r} possède déjà ${pw.shortLabel}`
           : blocked
           ? blockedTitle
           : `Attribuer ${pw.shortLabel} à Joueuse ${r} (${pw.cost} 🪙 PO)`;
-        btn.disabled = owned || blocked || !isShopOpen || (!unlimitedCoins && myPE < pw.cost);
+        btn.disabled = lockedByTut || owned || blocked || !isShopOpen || (!unlimitedCoins && myPE < pw.cost);
         btn.onclick = () => buyIndividualPower(pw.key, pw.cost, r);
         btnWrap.appendChild(btn);
       });
@@ -1231,10 +1238,12 @@ export function renderShopItems() {
     btn.className = `shop-role-btn dossard-${cKey}${bought ? ' owned' : ''}`;
     btn.setAttribute('data-dossard-color', cKey);
     btn.textContent = bought ? `${COLORS[cKey].symbol} ✔` : `+1 ${shortColorLabels[cKey]}`;
-    btn.title = bought
+    btn.title = isTutToolStep
+      ? 'Étape Outils : achetez un Outil (📡 / 🧱 / ⚡) pour G !'
+      : bought
       ? `Dossard ${COLORS[cKey].name} supplémentaire déjà acquis`
       : `+1 dossard ${COLORS[cKey].name} (1 🪙 PO)`;
-    btn.disabled = bought || !isShopOpen || (!unlimitedCoins && myPE < 1);
+    btn.disabled = isTutToolStep || bought || !isShopOpen || (!unlimitedCoins && myPE < 1);
     btn.onclick = () => buyExtraDossard(cKey);
     dossardWrap.appendChild(btn);
   });
@@ -1269,7 +1278,7 @@ export function renderShopItems() {
             title: '👟 Dash + (Équipe — 2 🪙 PO)',
             desc: `+35 % distance et +15 % vitesse de Dash pour vos 3 joueuses (cumulable avec les évolutions).`,
             actionLabel: myMeta.teamDashPlus ? 'Acquis ✔' : 'Acheter (2 🪙 PO)',
-            canBuy: isShopOpen && (unlimitedCoins || myPE >= 2) && !myMeta.teamDashPlus,
+            canBuy: !isTutToolStep && isShopOpen && (unlimitedCoins || myPE >= 2) && !myMeta.teamDashPlus,
             onBuy: () => commitTeamShopPurchase('teamDashPlus')
           }
         ]
@@ -1278,7 +1287,7 @@ export function renderShopItems() {
       title: '🦘 Débloquer Saut (Équipe — 3 🪙 PO)',
       desc: `Autorise vos 3 joueuses à sauter ([Espace] / bouton Saut) pour franchir murs déployés et plaques de givre.`,
       actionLabel: myMeta.teamJump ? 'Acquis ✔' : 'Acheter (3 🪙 PO)',
-      canBuy: isShopOpen && (unlimitedCoins || myPE >= 3) && !myMeta.teamJump,
+      canBuy: !isTutToolStep && isShopOpen && (unlimitedCoins || myPE >= 3) && !myMeta.teamJump,
       onBuy: () => commitTeamShopPurchase('teamJump')
     }
   ];
@@ -1336,8 +1345,8 @@ function buyIndividualPower(powerKey, cost, targetRole = null) {
     } else {
       syncMyTeamPrep();
     }
-    if (state.mode === 'tutorial' && state.tutorialStep === 3) {
-      markTutorialCheck('peSpent');
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS && def.category === 'tool' && r === 'G') {
+      markTutorialCheck('toolBought');
     }
     ctx.api.playSfx?.('shop_buy');
     return true;
@@ -1381,9 +1390,6 @@ function buyExtraDossard(targetColor = null) {
       } else {
         syncMyTeamPrep();
       }
-      if (state.mode === 'tutorial' && state.tutorialStep === 3) {
-        markTutorialCheck('peSpent');
-      }
       ctx.api.playSfx?.('shop_buy');
       return true;
     }
@@ -1391,7 +1397,7 @@ function buyExtraDossard(targetColor = null) {
   return false;
 }
 
-// --- CONTRÔLEUR SÉQUENCE TUTORIEL (4 ÉTAPES GUIDÉES) ---
+// --- CONTRÔLEUR SÉQUENCE TUTORIEL (8 ÉTAPES GUIDÉES) ---
 let tutorialBeaconGroup = null;
 let tutorialAutoAdvanceTimer = null;
 let tutorialFinishTimer = null;
@@ -1404,24 +1410,30 @@ export function isDashUnlocked() {
 
 export function isTutorialRoleSwitchAllowed() {
   if (state.mode !== 'tutorial') return true;
-  return state.tutorialStep === 1 && !!state.tutorialChecklist.dashed;
+  if (state.tutorialStep === TUTORIAL_STEPS.MOVEMENT) return !!state.tutorialChecklist.dashed;
+  if (state.tutorialStep === TUTORIAL_STEPS.RULE1) return !!state.tutorialChecklist.rule1Locked;
+  return false;
 }
 
 function syncTutorialEntityVisibility() {
   const isTut = state.mode === 'tutorial';
-  const step = Math.min(5, Math.max(1, state.tutorialStep || 1));
+  const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, state.tutorialStep || 1));
 
   players.forEach((p) => {
     let hidden = false;
     if (isTut) {
-      if (step === 1) {
+      if (step === TUTORIAL_STEPS.MOVEMENT) {
         hidden =
           p.team !== 'ally' ||
           (p.role !== 'G' && !state.tutorialChecklist.dashed);
-      } else if (step === 2) {
+      } else if (step === TUTORIAL_STEPS.GOAL) {
         hidden = !(p.team === 'ally' && p.role === 'G');
+      } else if (step === TUTORIAL_STEPS.PASS) {
+        hidden = !(p.team === 'ally' && (p.role === 'G' || p.role === 'C'));
+      } else if (step === TUTORIAL_STEPS.RULE1) {
+        hidden = !(p.team === 'ally' || (p.team === 'enemy' && p.role === 'C'));
       } else {
-        // Étapes 3, 4 & 5 : uniquement votre perso Feu (G) et l'adversaire cible (Adv D)
+        // Étapes Triangle (4), Outils (6), Ultimate (7) & MOBA (8) : Feu (G) et Adv D
         hidden = !((p.team === 'ally' && p.role === 'G') || (p.team === 'enemy' && p.role === 'D'));
       }
     }
@@ -1436,7 +1448,9 @@ function syncTutorialEntityVisibility() {
   });
 
   balls.forEach((b) => {
-    const hidden = isTut ? !(step === 2 && b.id === 0) : false;
+    const hidden = isTut
+      ? !((step === TUTORIAL_STEPS.GOAL || step === TUTORIAL_STEPS.PASS) && b.id === 0)
+      : false;
     b.tutorialHidden = hidden;
     if (b.mesh && b.mesh.group) {
       b.mesh.group.visible = !hidden;
@@ -1445,13 +1459,13 @@ function syncTutorialEntityVisibility() {
 }
 
 function getTutorialStepDef(stepNum) {
-  const step = Math.min(5, Math.max(1, Number(stepNum) || 1));
+  const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, Number(stepNum) || 1));
   const isMob = !!state.mobileMode;
   const moveClickLbl = state.mobaMoveButton === 'left' ? 'Clic Gauche' : 'Clic Droit';
 
   const defs = {
     1: {
-      title: '1/5 — Mouvement',
+      title: '1/8 — Mouvement',
       desc: isMob
         ? 'Stick gauche vers la balise → Dash → changer de perso puis revenir sur G.'
         : 'Bougez vers la balise → Dash [Shift] → changer de perso puis revenir sur G.',
@@ -1475,7 +1489,7 @@ function getTutorialStepDef(stepNum) {
       ]
     },
     2: {
-      title: '2/5 — But du jeu',
+      title: '2/8 — But du jeu',
       desc: 'Prenez le ballon 🔥 Rouge et marquez au cerceau droit (+1 pt de victoire).',
       items: [
         { key: 'pickedBall', label: 'Prendre le ballon 🔥 Rouge', overhead: '🎯 Prendre le ballon 🔥 Rouge' },
@@ -1483,22 +1497,62 @@ function getTutorialStepDef(stepNum) {
       ]
     },
     3: {
-      title: '3/5 — Triangle & 🪙 PO',
+      title: '3/8 — Passes 🎯',
       desc: isMob
-        ? '🔥 > 🌿. Contournez Adv D, interceptez (+🪙 PO) puis 🛒 Boutique.'
-        : '🔥 > 🌿. Contournez Adv D, interceptez (+🪙 PO) puis Boutique [B].',
+        ? 'Prenez le ballon 🔥 Rouge, maintenez ⚽ Passe et visez 💧 C (même d’une autre couleur) !'
+        : 'Prenez le ballon 🔥 Rouge, maintenez [E] pour charger la portée et passez à 💧 C (même d’une autre couleur) !',
       items: [
-        { key: 'backSeen', label: 'Voir le dos d’Adv D (?)', overhead: '🎯 Contourner Adv D pour voir son dos (?)' },
-        { key: 'intercepted', label: 'Intercepter 🔥 > 🌿 (+🪙 PO)', overhead: '🎯 Intercepter Adv D (🔥 > 🌿) → +🪙 PO' },
+        { key: 'pickedPassBall', label: 'Prendre le ballon 🔥 Rouge', overhead: '🎯 Prendre le ballon 🔥 Rouge' },
         {
-          key: 'peSpent',
-          label: isMob ? 'Boutique 🪙 PO (1 achat)' : 'Magasin 🪙 PO [B] (1 achat)',
-          overhead: isMob ? '🎯 Taper 🛒 Boutique : acheter 1 pouvoir' : '🎯 Boutique 🪙 PO [B] : acheter 1 pouvoir'
+          key: 'passedBall',
+          label: isMob ? 'Passer à 💧 C (Maintenir ⚽ Passe)' : 'Passer à 💧 C (Maintenir [E])',
+          overhead: isMob ? '🎯 Maintenir ⚽ Passe et viser 💧 C' : '🎯 Viser 💧 C et maintenir [E] pour passer'
         }
       ]
     },
     4: {
-      title: '4/5 — Visée Ultimate 🔥',
+      title: '4/8 — Triangle & 🪙 PO',
+      desc: '🔥 > 🌿. Contournez Adv D pour voir son dos (?), puis interceptez-la pour gagner des 🪙 PO !',
+      items: [
+        { key: 'backSeen', label: 'Voir le dos d’Adv D (?)', overhead: '🎯 Contourner Adv D pour voir son dos (?)' },
+        { key: 'intercepted', label: 'Intercepter 🔥 > 🌿 (+🪙 PO)', overhead: '🎯 Intercepter Adv D (🔥 > 🌿) → +🪙 PO' }
+      ]
+    },
+    5: {
+      title: '5/8 — Règle 1 ⚡',
+      desc: isMob
+        ? 'Même couleur = blocage ! Seul le bon élément (💧 > 🔥) libère G : tapez C puis interceptez Adv C.'
+        : 'Même couleur = blocage ! Seul le bon élément (💧 > 🔥) libère G : incarnez 💧 C [2] et interceptez Adv C.',
+      items: [
+        { key: 'rule1Locked', label: 'Collision même couleur (🔥 = 🔥)', overhead: '🎯 Avancer sur Adv C (🔥) → blocage Règle 1' },
+        {
+          key: 'rule1Switched',
+          label: isMob ? 'Prendre le bon élément : 💧 C (Taper C)' : 'Prendre le bon élément : 💧 C ([2] ou Clic)',
+          overhead: isMob ? '🎯 Seule 💧 > 🔥 libère G ! Tapez C en bas' : '🎯 Seule 💧 > 🔥 libère G ! Prenez 💧 C [2]'
+        },
+        { key: 'rule1Broken', label: 'Intercepter Adv C (💧 > 🔥) pour libérer G', overhead: '🎯 Intercepter Adv C (🔥) avec 💧 C !' }
+      ]
+    },
+    6: {
+      title: '6/8 — Outils 🛠️',
+      desc: isMob
+        ? 'Ouvrez 🛒 Boutique, achetez un outil (📡/🧱/⚡) pour G puis déployez-le (bouton outil, sans balle) !'
+        : 'Ouvrez Boutique [B], achetez un outil (📡/🧱/⚡) pour G puis déployez-le avec [E] (sans balle) !',
+      items: [
+        {
+          key: 'toolBought',
+          label: isMob ? 'Acheter un Outil (🛒 Boutique)' : 'Acheter un Outil (Boutique [B])',
+          overhead: isMob ? '🎯 Taper 🛒 Boutique : acheter un Outil pour G' : '🎯 Boutique [B] : acheter un Outil pour G'
+        },
+        {
+          key: 'toolDeployed',
+          label: isMob ? 'Déployer l’outil (Bouton 📡/🧱/⚡)' : 'Déployer l’outil ([E] sans balle)',
+          overhead: isMob ? '🎯 Taper le bouton Outil (📡/🧱/⚡) !' : '🎯 Appuyer sur [E] (sans balle) pour déployer !'
+        }
+      ]
+    },
+    7: {
+      title: '7/8 — Visée Ultimate 🔥',
       desc: isMob
         ? 'Ultimate débloqué ! Maintenez ⚡ Ult, visez vers Adv D puis relâchez.'
         : 'Ultimate débloqué ! [R] pour viser le Rayon Feu puis Clic Gauche.',
@@ -1515,8 +1569,8 @@ function getTutorialStepDef(stepNum) {
         }
       ]
     },
-    5: {
-      title: '5/5 — Vue MOBA 🦅',
+    8: {
+      title: '8/8 — Vue MOBA 🦅',
       desc: isMob
         ? 'Basculez en vue MOBA (🎥 TPS → 🦅 MOBA) puis utilisez le stick gauche pour bouger !'
         : `Basculez en vue aérienne MOBA [M] (ou bouton 🎥 Vue) puis déplacez-vous au ${moveClickLbl} !`,
@@ -1539,7 +1593,7 @@ function getTutorialStepDef(stepNum) {
 
 export function getNextTutorialObjectiveItem() {
   if (state.mode !== 'tutorial' || state.phase !== 'play' || state.tutorialIntroVisible) return null;
-  const step = Math.min(5, Math.max(1, state.tutorialStep || 1));
+  const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, state.tutorialStep || 1));
   const def = getTutorialStepDef(step);
   if (!def) return null;
   return def.items.find((it) => !state.tutorialChecklist[it.key]) || null;
@@ -1555,8 +1609,8 @@ export function dismissTutorialIntro() {
     if (wasVisible && state.tutorialStep === 1) {
       showToast(
         state.mobileMode
-          ? '🎓 <strong>Étape 1/5 :</strong> Avancez au stick gauche jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !'
-          : '🎓 <strong>Étape 1/5 :</strong> Avancez jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !',
+          ? '🎓 <strong>Étape 1/8 :</strong> Avancez au stick gauche jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !'
+          : '🎓 <strong>Étape 1/8 :</strong> Avancez jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !',
         3400
       );
     }
@@ -1595,7 +1649,7 @@ function updateTutorialBeaconTarget() {
     beacon.visible = false;
     return;
   }
-  if (state.tutorialStep === 1) {
+  if (state.tutorialStep === TUTORIAL_STEPS.MOVEMENT) {
     if (!state.tutorialChecklist.movedToBeacon) {
       beacon.visible = true;
       beacon.position.set(-12, 0.1, FIELD.laneTopZ);
@@ -1610,7 +1664,7 @@ function updateTutorialBeaconTarget() {
     } else {
       beacon.visible = false;
     }
-  } else if (state.tutorialStep === 2) {
+  } else if (state.tutorialStep === TUTORIAL_STEPS.GOAL) {
     const me = getPlayer('ally', state.controlledRole);
     if (me && me.carryingBall) {
       beacon.visible = true;
@@ -1620,10 +1674,42 @@ function updateTutorialBeaconTarget() {
       const targetBall = balls.find((b) => !b.tutorialHidden && b.state !== 'scored' && me && b.color === me.color) || balls[0];
       beacon.position.set(targetBall ? targetBall.pos.x : 0, 0.1, targetBall ? targetBall.pos.z : FIELD.laneTopZ);
     }
-  } else if (state.tutorialStep === 3 && !state.tutorialChecklist.intercepted) {
+  } else if (state.tutorialStep === TUTORIAL_STEPS.PASS) {
+    if (!state.tutorialChecklist.pickedPassBall) {
+      beacon.visible = true;
+      const targetBall = balls[0];
+      beacon.position.set(targetBall ? targetBall.pos.x : -14, 0.1, targetBall ? targetBall.pos.z : FIELD.laneTopZ);
+    } else if (!state.tutorialChecklist.passedBall) {
+      const allyC = getPlayer('ally', 'C');
+      if (allyC) {
+        beacon.visible = true;
+        beacon.position.set(allyC.pos.x, Math.max(0.1, allyC.pos.y + 0.1), allyC.pos.z);
+      } else {
+        beacon.visible = false;
+      }
+    } else {
+      beacon.visible = false;
+    }
+  } else if (state.tutorialStep === TUTORIAL_STEPS.TRIANGLE && !state.tutorialChecklist.intercepted) {
     beacon.visible = true;
     const eTarget = getPlayer('enemy', 'D') || players.find((p) => !p.tutorialHidden && p.team === 'enemy' && p.state === 'standing');
     beacon.position.set(eTarget ? eTarget.pos.x : 12, 0.1, eTarget ? eTarget.pos.z : FIELD.laneTopZ);
+  } else if (state.tutorialStep === TUTORIAL_STEPS.RULE1) {
+    if (!state.tutorialChecklist.rule1Locked) {
+      const enemyC = getPlayer('enemy', 'C');
+      beacon.visible = !!enemyC;
+      if (enemyC) beacon.position.set(enemyC.pos.x, Math.max(0.1, enemyC.pos.y + 0.1), enemyC.pos.z);
+    } else if (!state.tutorialChecklist.rule1Switched) {
+      const allyC = getPlayer('ally', 'C');
+      beacon.visible = !!allyC;
+      if (allyC) beacon.position.set(allyC.pos.x, Math.max(0.1, allyC.pos.y + 0.1), allyC.pos.z);
+    } else if (!state.tutorialChecklist.rule1Broken) {
+      const enemyC = getPlayer('enemy', 'C');
+      beacon.visible = !!enemyC;
+      if (enemyC) beacon.position.set(enemyC.pos.x, Math.max(0.1, enemyC.pos.y + 0.1), enemyC.pos.z);
+    } else {
+      beacon.visible = false;
+    }
   } else {
     beacon.visible = false;
   }
@@ -1640,7 +1726,7 @@ function updateTutorialSequenceHUD() {
     return;
   }
 
-  const step = Math.min(5, Math.max(1, state.tutorialStep || 1));
+  const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, state.tutorialStep || 1));
   const def = getTutorialStepDef(step);
   const titleEl = document.getElementById('tut-step-title');
   const descEl = document.getElementById('tut-step-desc');
@@ -1675,11 +1761,11 @@ function updateTutorialSequenceHUD() {
     });
   }
 
-  if (btnShop) btnShop.classList.toggle('hidden', !(step === 3 && !!state.tutorialChecklist.intercepted));
+  if (btnShop) btnShop.classList.toggle('hidden', !(step === TUTORIAL_STEPS.TOOLS && !state.tutorialChecklist.toolBought));
   if (btnRefUlt) btnRefUlt.classList.toggle('hidden', true);
-  if (btnToPractice) btnToPractice.classList.toggle('hidden', step === 5);
+  if (btnToPractice) btnToPractice.classList.toggle('hidden', step === TUTORIAL_TOTAL_STEPS);
   if (btnNext) {
-    btnNext.textContent = step < 5 ? 'Suivant ▶' : '🧪 Mode Pratique ▶';
+    btnNext.textContent = step < TUTORIAL_TOTAL_STEPS ? 'Suivant ▶' : '🧪 Mode Pratique ▶';
   }
 }
 
@@ -1752,16 +1838,24 @@ export function completeTutorialToPractice(withCongrats = true) {
 
   const customSpawns = FIELD.playerSpawns;
   const wingX = Math.round(FIELD.width * (46 / DEFAULT_FIELD_CONFIG.width));
-  const enemyD = getPlayer('enemy', 'D');
-  if (enemyD) {
-    const ex = customSpawns ? customSpawns.enemy.D.x : wingX;
-    const ez = customSpawns ? customSpawns.enemy.D.z : FIELD.laneTopZ;
-    const ey = getTerrainY(ex, ez, state.mapId);
-    enemyD.pos.set(ex, ey, ez);
-    enemyD.targetPos.copy(enemyD.pos);
-    enemyD.facingAngle = customSpawns ? customSpawns.enemy.D.facing : -Math.PI / 2;
-    enemyD.targetFacingAngle = enemyD.facingAngle;
-  }
+  const centerX = Math.round(FIELD.width * (74 / DEFAULT_FIELD_CONFIG.width));
+  const resetSpawnPos = (teamKey, roleKey, defaultX, defaultZ, defaultFacing) => {
+    const pl = getPlayer(teamKey, roleKey);
+    if (!pl) return null;
+    const cs = customSpawns && customSpawns[teamKey] && customSpawns[teamKey][roleKey];
+    const rx = cs ? cs.x : defaultX;
+    const rz = cs ? cs.z : defaultZ;
+    const ry = getTerrainY(rx, rz, state.mapId);
+    pl.pos.set(rx, ry, rz);
+    pl.targetPos.copy(pl.pos);
+    pl.facingAngle = cs ? cs.facing : defaultFacing;
+    pl.targetFacingAngle = pl.facingAngle;
+    return pl;
+  };
+  const enemyD = resetSpawnPos('enemy', 'D', wingX, FIELD.laneTopZ, -Math.PI / 2);
+  resetSpawnPos('enemy', 'C', centerX, 0, -Math.PI / 2);
+  resetSpawnPos('ally', 'C', -centerX, 0, Math.PI / 2);
+  resetSpawnPos('ally', 'D', -wingX, FIELD.laneBotZ, Math.PI / 2);
 
   players.forEach((p) => {
     p.state = 'standing';
@@ -1869,10 +1963,10 @@ function evaluateTutorialStepCompletion() {
   if (!def) return;
   const allDone = def.items.every((it) => !!state.tutorialChecklist[it.key]);
   if (allDone) {
-    ctx.api.playSfx?.(step < 5 ? 'tut_step_clear' : 'victory');
-    if (step < 5) {
+    ctx.api.playSfx?.(step < TUTORIAL_TOTAL_STEPS ? 'tut_step_clear' : 'victory');
+    if (step < TUTORIAL_TOTAL_STEPS) {
       if (tutorialAutoAdvanceTimer) clearTimeout(tutorialAutoAdvanceTimer);
-      showToast(`✨ <strong>${def.title} validée !</strong> Étape ${step + 1}/5...`, 1800);
+      showToast(`✨ <strong>${def.title} validée !</strong> Étape ${step + 1}/${TUTORIAL_TOTAL_STEPS}...`, 1800);
       tutorialAutoAdvanceTimer = setTimeout(() => {
         tutorialAutoAdvanceTimer = null;
         if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === step) {
@@ -1887,7 +1981,7 @@ function evaluateTutorialStepCompletion() {
       );
       tutorialFinishTimer = setTimeout(() => {
         tutorialFinishTimer = null;
-        if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === 5) {
+        if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === TUTORIAL_TOTAL_STEPS) {
           completeTutorialToPractice(true);
         }
       }, 1900);
@@ -1897,12 +1991,12 @@ function evaluateTutorialStepCompletion() {
 
 export function markTutorialCheck(key) {
   if (state.mode !== 'tutorial') return;
-  if (state.phase !== 'play' && key !== 'peSpent') return;
+  if (state.phase !== 'play' && key !== 'toolBought') return;
   const wasAlreadyDone = !!state.tutorialChecklist[key];
   state.tutorialChecklist[key] = true;
   if (!wasAlreadyDone) ctx.api.playSfx?.('tut_check');
 
-  if (!wasAlreadyDone && state.tutorialStep === 1) {
+  if (!wasAlreadyDone && state.tutorialStep === TUTORIAL_STEPS.MOVEMENT) {
     if (key === 'movedToBeacon') {
       showToast(
         state.mobileMode
@@ -1935,12 +2029,17 @@ export function markTutorialCheck(key) {
     }
   }
 
-  if (key === 'peSpent' && state.tutorialStep === 3 && state.phase === 'prep') {
+  if (key === 'rule1Locked' && state.tutorialStep === TUTORIAL_STEPS.RULE1) {
+    updateRosterHUD();
+    updateMobileTouchHUD();
+  }
+
+  if (key === 'toolBought' && state.tutorialStep === TUTORIAL_STEPS.TOOLS && state.phase === 'prep') {
     if (tutorialShopAutoReturnTimer) clearTimeout(tutorialShopAutoReturnTimer);
-    showToast('✔ <strong>Achat 🪙 PO validé !</strong> Retour au tutoriel...', 1400);
+    showToast('✔ <strong>Outil acheté !</strong> Retour sur le terrain...', 1400);
     tutorialShopAutoReturnTimer = setTimeout(() => {
       tutorialShopAutoReturnTimer = null;
-      if (state.mode === 'tutorial' && state.tutorialStep === 3 && state.phase === 'prep') {
+      if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS && state.phase === 'prep') {
         startRoundExecution();
       }
     }, 650);
@@ -1964,11 +2063,14 @@ export function enterTutorialStep(stepNum) {
     clearTimeout(tutorialShopAutoReturnTimer);
     tutorialShopAutoReturnTimer = null;
   }
-  const step = Math.min(5, Math.max(1, Number(stepNum) || 1));
+  const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, Number(stepNum) || 1));
   state.tutorialStep = step;
   state.tutorialChecklist = {};
   state.ultPreviewActive = false;
   hideUltimatePreview();
+
+  const r1Alert = document.getElementById('rule1-alert');
+  if (r1Alert) r1Alert.classList.add('hidden');
 
   if (step > 1 && state.tutorialIntroVisible) {
     state.tutorialIntroVisible = false;
@@ -1977,36 +2079,74 @@ export function enterTutorialStep(stepNum) {
     if (introEl) introEl.classList.add('hidden');
   }
 
-  if (step < 5 && state.cameraMode === 'aerial') {
+  if (step < TUTORIAL_STEPS.MOBA && state.cameraMode === 'aerial') {
     setCameraMode('tps', true);
   }
 
   applyRoundSetupPositions();
   const allyG = getPlayer('ally', 'G');
+  const allyC = getPlayer('ally', 'C');
+  const allyD = getPlayer('ally', 'D');
   const enemyD = getPlayer('enemy', 'D');
-  state.teams.ally.prepColors.G = 'red';
+  const enemyC = getPlayer('enemy', 'C');
+  state.teams.ally.prepColors = { G: 'red', C: 'blue', D: 'green' };
+  state.teams.enemy.prepColors = { D: 'green', G: 'blue', C: 'red' };
   if (allyG) applyPlayerColor(allyG, 'red');
+  if (allyC) applyPlayerColor(allyC, 'blue');
+  if (allyD) applyPlayerColor(allyD, 'green');
+  if (enemyD) applyPlayerColor(enemyD, 'green');
+  if (enemyC) applyPlayerColor(enemyC, 'red');
 
   const moveClickLbl = state.mobaMoveButton === 'left' ? 'Clic Gauche' : 'Clic Droit';
 
-  if (step === 1) {
+  if (step === TUTORIAL_STEPS.MOVEMENT) {
     selectControlledRole('G', { silent: true, force: true });
     state.camYaw = -Math.PI / 2;
     if (!state.tutorialIntroVisible) {
       showToast(
         state.mobileMode
-          ? '🎓 <strong>Étape 1/5 :</strong> Avancez au stick gauche jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !'
-          : '🎓 <strong>Étape 1/5 :</strong> Avancez jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !',
+          ? '🎓 <strong>Étape 1/8 :</strong> Avancez au stick gauche jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !'
+          : '🎓 <strong>Étape 1/8 :</strong> Avancez jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !',
         3400
       );
     }
-  } else if (step === 2) {
+  } else if (step === TUTORIAL_STEPS.GOAL) {
     if (state.controlledRole !== 'G') {
       selectControlledRole('G', { silent: true, force: true });
     }
     state.camYaw = -Math.PI / 2;
-    showToast('⚽ <strong>Étape 2/5 :</strong> Prenez le ballon <strong>🔥 Rouge</strong> devant vous et marquez à droite !', 3600);
-  } else if (step === 3) {
+    showToast('⚽ <strong>Étape 2/8 :</strong> Prenez le ballon <strong>🔥 Rouge</strong> devant vous et marquez à droite !', 3600);
+  } else if (step === TUTORIAL_STEPS.PASS) {
+    const ball0 = balls[0];
+    if (ball0) {
+      ball0.state = 'ground';
+      ball0.carrier = null;
+      ball0.thrownByTeam = null;
+      ball0.thrownById = null;
+      ball0.passTargetId = null;
+      ball0.passIgnoreTimer = 0;
+      ball0.onCanopy = false;
+      ball0.pos.set(-14, 0.52, FIELD.laneTopZ);
+      ball0.targetPos.copy(ball0.pos);
+      ball0.vel.set(0, 0, 0);
+    }
+    if (allyC) {
+      allyC.pos.set(8, 0, FIELD.laneTopZ + 5);
+      allyC.targetPos.copy(allyC.pos);
+      allyC.facingAngle = -Math.PI / 2;
+      allyC.targetFacingAngle = allyC.facingAngle;
+    }
+    if (state.controlledRole !== 'G') {
+      selectControlledRole('G', { silent: true, force: true });
+    }
+    state.camYaw = -Math.PI / 2;
+    showToast(
+      state.mobileMode
+        ? '🎯 <strong>Étape 3/8 — Passes :</strong> Prenez le ballon <strong>🔥 Rouge</strong>, puis maintenez <strong>⚽ Passe</strong> et visez <strong>💧 C</strong> !'
+        : '🎯 <strong>Étape 3/8 — Passes :</strong> Prenez le ballon <strong>🔥 Rouge</strong>, puis maintenez <strong>[E]</strong> en visant <strong>💧 C</strong> !',
+      4400
+    );
+  } else if (step === TUTORIAL_STEPS.TRIANGLE) {
     state.allyPE = 0;
     if (enemyD) {
       enemyD.pos.set(12, 0, FIELD.laneTopZ);
@@ -2018,8 +2158,61 @@ export function enterTutorialStep(stepNum) {
       selectControlledRole('G', { silent: true, force: true });
     }
     state.camYaw = -Math.PI / 2;
-    showToast('🔺 <strong>Étape 3/5 :</strong> Contournez Adv D (🌿) pour voir son dos (?), puis interceptez-la (🔥 > 🌿) !', 4000);
-  } else if (step === 4) {
+    showToast('🔺 <strong>Étape 4/8 :</strong> Contournez Adv D (🌿) pour voir son dos (?), puis interceptez-la (🔥 > 🌿) !', 4000);
+  } else if (step === TUTORIAL_STEPS.RULE1) {
+    if (allyG) {
+      allyG.pos.set(-16, 0, FIELD.laneTopZ);
+      allyG.targetPos.copy(allyG.pos);
+      allyG.facingAngle = Math.PI / 2;
+      allyG.targetFacingAngle = allyG.facingAngle;
+    }
+    if (enemyC) {
+      enemyC.pos.set(-4, 0, FIELD.laneTopZ);
+      enemyC.targetPos.copy(enemyC.pos);
+      enemyC.facingAngle = -Math.PI / 2;
+      enemyC.targetFacingAngle = enemyC.facingAngle;
+    }
+    if (allyC) {
+      allyC.pos.set(-22, 0, FIELD.laneTopZ + 12);
+      allyC.targetPos.copy(allyC.pos);
+      allyC.facingAngle = Math.atan2(-4 - (-22), FIELD.laneTopZ - (FIELD.laneTopZ + 12));
+      allyC.targetFacingAngle = allyC.facingAngle;
+    }
+    if (allyD) {
+      allyD.pos.set(-22, 0, FIELD.laneTopZ - 8);
+      allyD.targetPos.copy(allyD.pos);
+      allyD.facingAngle = Math.atan2(-4 - (-22), FIELD.laneTopZ - (FIELD.laneTopZ - 8));
+      allyD.targetFacingAngle = allyD.facingAngle;
+    }
+    if (state.controlledRole !== 'G') {
+      selectControlledRole('G', { silent: true, force: true });
+    }
+    state.camYaw = -Math.PI / 2;
+    showToast(
+      '⚡ <strong>Étape 5/8 — Règle 1 :</strong> Avancez sur <strong>Adv C (🔥)</strong> ! Même couleur = blocage — seul le <strong>bon élément (💧 > 🔥)</strong> pourra libérer G !',
+      4800
+    );
+  } else if (step === TUTORIAL_STEPS.TOOLS) {
+    state.teams.ally.powers.G.toolEvo = null;
+    if (allyG) syncPlayerPowerVisuals(allyG, 0);
+    state.allyPE = Math.max(3, state.allyPE);
+    if (enemyD) {
+      enemyD.pos.set(12, 0, FIELD.laneTopZ);
+      enemyD.targetPos.copy(enemyD.pos);
+      enemyD.facingAngle = -Math.PI / 2;
+      enemyD.targetFacingAngle = enemyD.facingAngle;
+    }
+    if (state.controlledRole !== 'G') {
+      selectControlledRole('G', { silent: true, force: true });
+    }
+    state.camYaw = -Math.PI / 2;
+    showToast(
+      state.mobileMode
+        ? '🛠️ <strong>Étape 6/8 — Outils :</strong> Ouvrez <strong>🛒 Boutique</strong>, achetez un outil (📡/🧱/⚡) pour G puis déployez-le (bouton outil, sans balle) !'
+        : '🛠️ <strong>Étape 6/8 — Outils :</strong> Ouvrez la Boutique <strong>[B]</strong> (ou 🛒 Boutique), achetez un outil (📡/🧱/⚡) pour G puis déployez-le avec <strong>[E]</strong> (sans balle) !',
+      4800
+    );
+  } else if (step === TUTORIAL_STEPS.ULTIMATE) {
     clearAllUltimates();
     if (enemyD) {
       enemyD.pos.set(12, 0, FIELD.laneTopZ);
@@ -2033,11 +2226,11 @@ export function enterTutorialStep(stepNum) {
     state.camYaw = -Math.PI / 2;
     showToast(
       state.mobileMode
-        ? '🔥 <strong>Étape 4/5 — Ultimate débloqué !</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
-        : '🔥 <strong>Étape 4/5 — Ultimate débloqué !</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma puis <strong>Clic Gauche</strong> !',
+        ? '🔥 <strong>Étape 7/8 — Ultimate débloqué !</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
+        : '🔥 <strong>Étape 7/8 — Ultimate débloqué !</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma puis <strong>Clic Gauche</strong> !',
       4200
     );
-  } else if (step === 5) {
+  } else if (step === TUTORIAL_STEPS.MOBA) {
     clearAllUltimates();
     if (state.cameraMode === 'aerial') {
       setCameraMode('tps', true);
@@ -2054,8 +2247,8 @@ export function enterTutorialStep(stepNum) {
     state.camYaw = -Math.PI / 2;
     showToast(
       state.mobileMode
-        ? '🦅 <strong>Étape 5/5 — Vue MOBA !</strong> Tapez <strong>🎥 TPS</strong> en haut puis déplacez-vous avec le <strong>stick gauche</strong> !'
-        : `🦅 <strong>Étape 5/5 — Vue MOBA !</strong> Appuyez sur <strong>[Y]</strong> (ou <strong>🎥 Vue</strong>) puis faites un <strong>${moveClickLbl}</strong> au sol !`,
+        ? '🦅 <strong>Étape 8/8 — Vue MOBA !</strong> Tapez <strong>🎥 TPS</strong> en haut puis déplacez-vous avec le <strong>stick gauche</strong> !'
+        : `🦅 <strong>Étape 8/8 — Vue MOBA !</strong> Appuyez sur <strong>[M]</strong> (ou <strong>🎥 Vue</strong>) puis faites un <strong>${moveClickLbl}</strong> au sol !`,
       4200
     );
   }
@@ -2071,24 +2264,36 @@ export function enterTutorialStep(stepNum) {
 }
 
 export function openTutorialShopStep3() {
-  if (state.mode !== 'tutorial' || state.phase !== 'play') return;
-  if (!state.tutorialChecklist.intercepted) {
-    showToast('🔒 <strong>Boutique verrouillée :</strong> interceptez d’abord <strong>Adv D (🌿)</strong> pour gagner des pièces d’or (🪙 PO) !', 2500);
-    return;
+  if (state.mode !== 'tutorial' || state.phase !== 'play' || state.tutorialStep !== TUTORIAL_STEPS.TOOLS) return;
+  if (!state.teams.ally.powers.G.toolEvo) {
+    state.allyPE = Math.max(3, state.allyPE);
   }
-  state.allyPE = Math.max(3, state.allyPE);
   state.tutorialPreserveStep = true;
   unlockPointer();
-  openPrepModal();
+  openPrepModal({ defaultTab: 'individual' });
 }
 
 function resumeTutorialStep3AfterShop() {
-  state.tutorialStep = 3;
   syncTutorialEntityVisibility();
   updateTeamVisionState(true);
   updateTutorialSequenceHUD();
   updateTutorialBeaconTarget();
+  updateRosterHUD();
+  updateMobileTouchHUD();
   evaluateTutorialStepCompletion();
+  if (
+    state.mode === 'tutorial' &&
+    state.tutorialStep === TUTORIAL_STEPS.TOOLS &&
+    state.tutorialChecklist.toolBought &&
+    !state.tutorialChecklist.toolDeployed
+  ) {
+    showToast(
+      state.mobileMode
+        ? '🛠️ <strong>Outil équipé !</strong> Appuyez sur le <strong>bouton Outil (📡/🧱/⚡)</strong> sans balle pour le déployer !'
+        : '🛠️ <strong>Outil équipé !</strong> Appuyez sur <strong>[E]</strong> (sans balle) pour le déployer sur le terrain !',
+      4200
+    );
+  }
 }
 
 export function updateTutorialSequence(dt) {
@@ -2100,12 +2305,12 @@ export function updateTutorialSequence(dt) {
     const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.09;
     beacon.scale.set(pulse, 1, pulse);
   }
-  if (state.tutorialStep === 1 && !state.tutorialChecklist.movedToBeacon) {
+  if (state.tutorialStep === TUTORIAL_STEPS.MOVEMENT && !state.tutorialChecklist.movedToBeacon) {
     const me = getPlayer('ally', state.controlledRole);
     if (me && Math.hypot(me.pos.x - (-12), me.pos.z - FIELD.laneTopZ) < 3.4) {
       markTutorialCheck('movedToBeacon');
     }
-  } else if (state.tutorialStep === 3 && !state.tutorialChecklist.backSeen) {
+  } else if (state.tutorialStep === TUTORIAL_STEPS.TRIANGLE && !state.tutorialChecklist.backSeen) {
     const anyBack = players.some((p) => !p.tutorialHidden && p.team === 'enemy' && (p.backRevealed || p.currentlySeeingBack));
     if (anyBack) {
       markTutorialCheck('backSeen');

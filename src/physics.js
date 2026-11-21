@@ -4,6 +4,7 @@
 
 import {
   COLORS,
+  TUTORIAL_STEPS,
   FIELD,
   DASH_DURATION,
   DASH_COOLDOWN,
@@ -402,6 +403,14 @@ function executeBallPassOrThrow(p, targetAlly, aimAngle, chargeRatio = 0) {
 
     spawnParticles(ball.pos, COLORS[ball.color].hex, 8);
     broadcastToast(`🎯 <strong>${p.role} lance le ballon !</strong>`, 2200);
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.PASS && p.team === 'ally') {
+      showToast(
+        state.mobileMode
+          ? '💡 <strong>Tir libre !</strong> Maintenez <strong>⚽ Passe</strong> et visez <strong>💧 C</strong> pour verrouiller la passe !'
+          : '💡 <strong>Tir libre !</strong> Maintenez <strong>[E]</strong> en visant <strong>💧 C</strong> jusqu’à ce que le cercle l’atteigne, puis relâchez !',
+        3600
+      );
+    }
   }
 
   ctx.api.playSfx?.(validTarget ? 'ball_pass' : 'ball_throw', { pos: p.pos });
@@ -1248,6 +1257,10 @@ export function deployPlayerTool(p, toolKey, ox, oy, oz, facingAngle, onCanopy =
   if (!fromNetwork) {
     const tMeta = TOOL_EVO_META[toolKey];
     broadcastToast(`${tMeta.icon} <strong>${p.role}</strong> déploie : <strong>${tMeta.shortLabel}</strong> !`, 2200);
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TOOLS && p.team === 'ally') {
+      markTutorialCheck('toolBought');
+      markTutorialCheck('toolDeployed');
+    }
     if (mp.enabled) {
       sendNetMessage({
         type: 'MP_TOOL_DEPLOY',
@@ -1827,7 +1840,7 @@ export function updateGameplay(dt) {
       // Stick manette ou joystick mobile actif uniquement (WASD/ZQSD clavier désactivés en mode MOBA)
       setMobaMoveGoal(null);
       hideMobaMoveMarker();
-      if (state.mode === 'tutorial' && state.tutorialStep === 5) {
+      if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.MOBA) {
         markTutorialCheck('mobaToggled');
         markTutorialCheck('mobaMoved');
       }
@@ -2573,12 +2586,29 @@ function updateBalls(dt) {
             updateRosterHUD();
             updateUltHudWidget();
 
-            if (state.mode === 'tutorial' && state.tutorialStep === 2 && p.team === 'ally') {
+            if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.GOAL && p.team === 'ally') {
               markTutorialCheck('pickedBall');
               showToast(
-                `🎓 <strong>Étape 2/5 :</strong> Bravo ! Apportez maintenant ce ballon jusqu'au <strong>cerceau adverse (à droite)</strong> pour marquer +1 pt !`,
+                `🎓 <strong>Étape 2/8 :</strong> Bravo ! Apportez maintenant ce ballon jusqu'au <strong>cerceau adverse (à droite)</strong> pour marquer +1 pt !`,
                 3500
               );
+            } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.PASS && p.team === 'ally') {
+              if (p.role === 'G') {
+                markTutorialCheck('pickedPassBall');
+                showToast(
+                  state.mobileMode
+                    ? '🎯 <strong>Ballon pris !</strong> Maintenez <strong>⚽ Passe</strong> et visez <strong>💧 C</strong> (même d’une autre couleur) pour lui passer !'
+                    : '🎯 <strong>Ballon pris !</strong> Visez <strong>💧 C</strong> et maintenez <strong>[E]</strong> jusqu’à verrouiller la passe (même d’une autre couleur) !',
+                  4200
+                );
+              } else if (p.role === 'C') {
+                markTutorialCheck('pickedPassBall');
+                markTutorialCheck('passedBall');
+                showToast(
+                  '🎯 <strong>Superbe passe !</strong> Même si <strong>C (💧)</strong> n’a pas la couleur du ballon, elle peut réceptionner votre passe !',
+                  4000
+                );
+              }
             }
             break;
           }
@@ -2629,6 +2659,32 @@ function schedulePracticeBallRespawn(ball) {
   }, 1200);
 }
 
+function scheduleTutorialPassBallRespawn(ball) {
+  setTimeout(() => {
+    if (state.mode !== 'tutorial' || state.tutorialStep !== TUTORIAL_STEPS.PASS) return;
+    ball.state = 'ground';
+    ball.carrier = null;
+    ball.thrownByTeam = null;
+    ball.thrownById = null;
+    ball.passTargetId = null;
+    ball.passIgnoreTimer = 0;
+    ball.onCanopy = false;
+    ball.pos.set(-14, 0.52, FIELD.laneTopZ);
+    ball.targetPos.copy(ball.pos);
+    ball.vel.set(0, 0, 0);
+    if (ball.mesh && ball.mesh.group) {
+      ball.mesh.group.position.copy(ball.pos);
+    }
+    spawnParticles(ball.pos, COLORS[ball.color].hex, 14);
+    showToast(
+      state.mobileMode
+        ? '🎯 <strong>Ballon replacé !</strong> Reprenez-le et maintenez <strong>⚽ Passe</strong> pour viser <strong>💧 C</strong> !'
+        : '🎯 <strong>Ballon replacé !</strong> Reprenez-le et maintenez <strong>[E]</strong> pour passer à <strong>💧 C</strong> !',
+      3200
+    );
+  }, 800);
+}
+
 function checkBallGoal(ball) {
   if (ball.state === 'scored') return;
 
@@ -2656,9 +2712,11 @@ function checkBallGoal(ball) {
     updateRosterHUD();
     if (state.mode === 'practice') {
       schedulePracticeBallRespawn(ball);
-    } else if (state.mode === 'tutorial' && state.tutorialStep === 2) {
+    } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.GOAL) {
       markTutorialCheck('pickedBall');
       markTutorialCheck('scoredGoal');
+    } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.PASS) {
+      scheduleTutorialPassBallRespawn(ball);
     }
     return;
   }
@@ -2684,6 +2742,8 @@ function checkBallGoal(ball) {
     updateRosterHUD();
     if (state.mode === 'practice') {
       schedulePracticeBallRespawn(ball);
+    } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.PASS) {
+      scheduleTutorialPassBallRespawn(ball);
     }
   }
 }
@@ -2741,13 +2801,23 @@ function resolveContact(ally, enemy) {
       4000
     );
 
-    if (state.mode === 'tutorial' && state.tutorialStep === 3) {
-      state.allyPE = Math.max(2, state.allyPE);
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.TRIANGLE) {
+      state.allyPE = Math.max(3, state.allyPE);
       markTutorialCheck('backSeen');
       markTutorialCheck('intercepted');
       showToast(
-        `💥 <strong>Superbe interception (+1 🪙 PO) !</strong> Appuyez maintenant sur <strong>[B]</strong> (ou cliquez <strong>🛒 Ouvrir Magasin 🪙 PO</strong>) pour dépenser vos pièces d'or !`,
-        5000
+        '💥 <strong>Superbe interception (+🪙 PO) !</strong> Vous maîtrisez le triangle élémentaire (🔥 > 🌿) !',
+        4000
+      );
+    } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.RULE1) {
+      markTutorialCheck('rule1Locked');
+      markTutorialCheck('rule1Switched');
+      markTutorialCheck('rule1Broken');
+      const r1Alert = document.getElementById('rule1-alert');
+      if (r1Alert) r1Alert.classList.add('hidden');
+      showToast(
+        '💧⚡ <strong>Situation débloquée !</strong> Seul le bon élément (<strong>💧 > 🔥</strong>) pouvait intercepter Adv C et libérer G !',
+        4800
       );
     }
 
@@ -2770,7 +2840,9 @@ function resolveContact(ally, enemy) {
       return;
     }
     sitDownPlayer(ally);
-    if (enemy.state === 'rule1') freeFromRule1(enemy);
+    if (enemy.state === 'rule1' && !(state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.RULE1)) {
+      freeFromRule1(enemy);
+    }
     state.enemyPE += 1;
     state.roundEnemyKills += 1;
     spawnParticles(ally.pos, COLORS[enemy.color].hex, 22);
@@ -2782,14 +2854,28 @@ function resolveContact(ally, enemy) {
     );
     if (state.mode === 'tutorial') {
       const recoverTarget = ally;
-      setTimeout(() => {
-        if (state.mode === 'tutorial' && state.phase === 'play' && recoverTarget.state === 'sitting') {
-          recoverTarget.state = 'standing';
-          spawnParticles(recoverTarget.pos, 0xfacc15, 12);
-          updateRosterHUD();
-          showToast('💡 <strong>Astuce Triangle :</strong> Choisissez une joueuse dont l’élément bat celui de l’adversaire (🌿 > 💧 > 🔥 > 🌿) !', 3400);
-        }
-      }, 1500);
+      if (state.tutorialStep === TUTORIAL_STEPS.RULE1) {
+        showToast(
+          `❌ <strong>Mauvais élément !</strong> 🔥 bat 🌿 : <strong>${ally.role}</strong> s'assoit et <strong>G reste bloquée</strong> ! Seul le bon élément (<strong>💧 C</strong>, car 💧 > 🔥) peut débloquer la situation !`,
+          4200
+        );
+        setTimeout(() => {
+          if (state.mode === 'tutorial' && state.phase === 'play' && recoverTarget.state === 'sitting') {
+            recoverTarget.state = 'standing';
+            spawnParticles(recoverTarget.pos, 0xfacc15, 12);
+            updateRosterHUD();
+          }
+        }, 1500);
+      } else {
+        setTimeout(() => {
+          if (state.mode === 'tutorial' && state.phase === 'play' && recoverTarget.state === 'sitting') {
+            recoverTarget.state = 'standing';
+            spawnParticles(recoverTarget.pos, 0xfacc15, 12);
+            updateRosterHUD();
+            showToast('💡 <strong>Astuce Triangle :</strong> Choisissez une joueuse dont l’élément bat celui de l’adversaire (🌿 > 💧 > 🔥 > 🌿) !', 3400);
+          }
+        }, 1500);
+      }
     }
     updateTopHUD();
     updateRosterHUD();
@@ -2804,10 +2890,18 @@ function resolveContact(ally, enemy) {
     spawnParticles(ally.pos, 0xfacc15, 16);
     ctx.api.playSfx?.('rule1_lock', { pos: ally.pos });
     broadcastToast(
-      `⚡ <strong>RÈGLE 1 DE ROCKET LEAGUE !</strong> Or ${ally.role} et Violette ${enemy.role} ont toutes deux la couleur ${COLORS[ally.color].name} : elles restent bloquées jusqu'à l'intervention d'une 3e joueuse !`,
+      `⚡ <strong>RÈGLE 1 DE ROCKET LEAGUE !</strong> Or ${ally.role} et Violette ${enemy.role} ont toutes deux la couleur ${COLORS[ally.color].name} : elles restent bloquées jusqu'à l'intervention d'une 3e joueuse du bon élément !`,
       5000
     );
-    if (state.mode === 'tutorial') {
+    if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.RULE1) {
+      markTutorialCheck('rule1Locked');
+      showToast(
+        state.mobileMode
+          ? '⚡ <strong>RÈGLE 1 !</strong> 🔥 G et 🔥 Adv C sont bloquées face à face ! <strong>Seul le bon élément (💧 > 🔥)</strong> peut libérer G — tapez <strong>C</strong> en bas !'
+          : '⚡ <strong>RÈGLE 1 !</strong> 🔥 G et 🔥 Adv C sont bloquées face à face ! <strong>Seul le bon élément (💧 > 🔥)</strong> peut libérer G — incarnez <strong>💧 C [2]</strong> !',
+        5000
+      );
+    } else if (state.mode === 'tutorial') {
       setTimeout(() => {
         if (state.mode === 'tutorial' && state.phase === 'play' && ally.state === 'rule1') {
           freeFromRule1(ally);
@@ -2859,6 +2953,9 @@ export function sitDownPlayer(player) {
 
 export function freeFromRule1(player) {
   if (player.rule1Partner) {
+    if (player.rule1Partner.state === 'rule1') {
+      player.rule1Partner.state = 'standing';
+    }
     player.rule1Partner.rule1Partner = null;
   }
   player.state = 'standing';
