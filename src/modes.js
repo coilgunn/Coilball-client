@@ -734,6 +734,7 @@ export function openPrepModal(options = {}) {
     if (document.getElementById('prep-modal').classList.contains('hidden')) return;
     state.prepTimer--;
     timerBadge.textContent = `⏱️ ${state.prepTimer}s`;
+    if (state.prepTimer > 0 && state.prepTimer <= 5) ctx.api.playSfx?.('prep_tick', { urgent: state.prepTimer <= 2 });
     if (state.prepTimer <= 0) {
       clearInterval(state.prepInterval);
       state.prepInterval = null;
@@ -1007,6 +1008,7 @@ export function handleHostPrepAction(msg, sourceConn) {
 
 export function assignPrepColor(role, newColor) {
   if (!applyTeamColorChange(state.myTeam, role, newColor)) return;
+  ctx.api.playSfx?.('ui_color_pick', { color: newColor });
   if (state.mode === 'practice' && state.phase === 'play') {
     const pl = getPlayer(state.myTeam, role);
     if (pl) applyPlayerColor(pl, newColor);
@@ -1242,6 +1244,7 @@ export function renderShopItems() {
   // 3) Améliorations collectives d'équipe (Option B Hybride)
   const commitTeamShopPurchase = (itemKey) => {
     if (!applyTeamCollectivePurchase(state.myTeam, itemKey)) return;
+    ctx.api.playSfx?.('shop_buy');
     renderShopItems();
     updateTopHUD();
     updateRosterHUD();
@@ -1336,6 +1339,7 @@ function buyIndividualPower(powerKey, cost, targetRole = null) {
     if (state.mode === 'tutorial' && state.tutorialStep === 3) {
       markTutorialCheck('peSpent');
     }
+    ctx.api.playSfx?.('shop_buy');
     return true;
   };
 
@@ -1380,6 +1384,7 @@ function buyExtraDossard(targetColor = null) {
       if (state.mode === 'tutorial' && state.tutorialStep === 3) {
         markTutorialCheck('peSpent');
       }
+      ctx.api.playSfx?.('shop_buy');
       return true;
     }
   }
@@ -1864,6 +1869,7 @@ function evaluateTutorialStepCompletion() {
   if (!def) return;
   const allDone = def.items.every((it) => !!state.tutorialChecklist[it.key]);
   if (allDone) {
+    ctx.api.playSfx?.(step < 5 ? 'tut_step_clear' : 'victory');
     if (step < 5) {
       if (tutorialAutoAdvanceTimer) clearTimeout(tutorialAutoAdvanceTimer);
       showToast(`✨ <strong>${def.title} validée !</strong> Étape ${step + 1}/5...`, 1800);
@@ -1894,6 +1900,7 @@ export function markTutorialCheck(key) {
   if (state.phase !== 'play' && key !== 'peSpent') return;
   const wasAlreadyDone = !!state.tutorialChecklist[key];
   state.tutorialChecklist[key] = true;
+  if (!wasAlreadyDone) ctx.api.playSfx?.('tut_check');
 
   if (!wasAlreadyDone && state.tutorialStep === 1) {
     if (key === 'movedToBeacon') {
@@ -2151,6 +2158,7 @@ export function startRoundExecution(fromNetwork = false) {
   resetPointerLockFlags();
   state.practiceShopPreservePlay = false;
   state.phase = 'play';
+  ctx.api.playSfx?.('round_start');
   mp.worldSeq = 0;
   mp.lastHostWorldSeq = 0;
   mp.inputSeq = 0;

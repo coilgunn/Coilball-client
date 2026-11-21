@@ -315,6 +315,7 @@ export function beginPassCharge(source = 'kb') {
   state.passCharge.aimAngle = aimAngle;
   state.passCharge.targetRole = bestAlly ? bestAlly.role : null;
   state.passCharge.source = source;
+  ctx.api.playSfx?.('pass_charge');
   return true;
 }
 
@@ -403,6 +404,7 @@ function executeBallPassOrThrow(p, targetAlly, aimAngle, chargeRatio = 0) {
     broadcastToast(`🎯 <strong>${p.role} lance le ballon !</strong>`, 2200);
   }
 
+  ctx.api.playSfx?.(validTarget ? 'ball_pass' : 'ball_throw', { pos: p.pos });
   updateRosterHUD();
   updateUltHudWidget();
   return true;
@@ -582,6 +584,7 @@ export function triggerPlayerAction(p) {
     pwr.standUp = false;
     p.state = 'standing';
     spawnParticles(p.pos, 0xfacc15, 20);
+    ctx.api.playSfx?.('stand_up', { pos: p.pos });
     broadcastToast(`⚡ <strong>${p.role} utilise "Se relever" !</strong> Elle reprend le jeu !`, 3500);
     updateRosterHUD();
     return;
@@ -656,6 +659,7 @@ function triggerBoomerangReturn(p) {
     p.dashTimer = 0;
   }
   spawnParticles(new THREE.Vector3(orig.x, orig.y + 0.5, orig.z), 0xfacc15, 14);
+  ctx.api.playSfx?.('dash_boomerang_return', { pos: p.pos });
   triggerGamepadRumble(100, 0.45, 0.6);
   showToast('🪃 <strong>Retour Boomerang !</strong>', 1200);
   return true;
@@ -793,6 +797,7 @@ export function triggerDash(overrideAngle = null) {
   spawnParticles(p.pos, COLORS[p.color].hex, dp.isSuper ? 16 : 12);
   spawnParticles(p.pos, dp.isSuper ? 0x38bdf8 : 0xffffff, dp.isSuper ? 14 : 8);
   if (dp.isSuper) spawnParticles(p.pos, 0xfacc15, 8);
+  ctx.api.playSfx?.(dp.kind ? 'dash_' + dp.kind : 'dash', { pos: p.pos, isSuper: dp.isSuper });
   triggerGamepadRumble(dp.isSuper ? 130 : 90, dp.isSuper ? 0.5 : 0.35, dp.isSuper ? 0.7 : 0.5);
   if (state.mode === 'tutorial' && state.tutorialStep === 1) {
     markTutorialCheck('dashed');
@@ -870,6 +875,7 @@ export function triggerJump(fromNetwork = false, targetPlayer = null, remoteMome
   if (Math.hypot(mvx, mvz) > 12) {
     spawnParticles(p.pos, 0xffffff, 8);
   }
+  ctx.api.playSfx?.('jump', { pos: p.pos, super: Math.hypot(mvx, mvz) > 12 });
   if (!fromNetwork && p.team === state.myTeam && p.role === state.controlledRole) {
     triggerGamepadRumble(60, 0.25, 0.35);
   }
@@ -1238,6 +1244,7 @@ export function deployPlayerTool(p, toolKey, ox, oy, oz, facingAngle, onCanopy =
   }
 
   spawnParticles(new THREE.Vector3(px, py + 0.5, pz), accentHex, 14);
+  ctx.api.playSfx?.('tool_' + toolKey, { pos: { x: px, y: py, z: pz } });
   if (!fromNetwork) {
     const tMeta = TOOL_EVO_META[toolKey];
     broadcastToast(`${tMeta.icon} <strong>${p.role}</strong> déploie : <strong>${tMeta.shortLabel}</strong> !`, 2200);
@@ -1316,6 +1323,7 @@ export function updateDeployedToolsAndPatches(dt) {
         pl.padDirZ = pad.dirZ;
         pl.facingAngle = Math.atan2(pad.dirX, pad.dirZ);
         spawnParticles(pl.pos, 0x38bdf8, 12);
+        ctx.api.playSfx?.('pad_boost', { pos: pl.pos });
       }
     }
   }
@@ -1398,6 +1406,7 @@ export function stepCharacterVerticalPhysics(p, intendedVx, intendedVz, dt, isDa
         p.isLaunching = false;
         p.launchBoostTimer = 0.85;
         spawnParticles(p.pos, 0x38bdf8, 16);
+        ctx.api.playSfx?.('sky_land', { pos: p.pos });
         if (p.team === state.myTeam && p.role === state.controlledRole) {
           triggerGamepadRumble(70, 0.2, 0.35);
         }
@@ -1437,6 +1446,7 @@ export function stepCharacterVerticalPhysics(p, intendedVx, intendedVz, dt, isDa
       p.vel.set(slideVx, p.vy, p.launchVz);
       spawnParticles(p.pos, 0x38bdf8, 14);
       spawnParticles(p.pos, 0xffffff, 8);
+      ctx.api.playSfx?.('sky_launch', { pos: p.pos });
     } else {
       p.pos.y = getStructureSurfaceY(p.pos.x, p.pos.z, true).y;
       p.vel.set(slideVx, 0, slideVz);
@@ -1470,6 +1480,7 @@ export function stepCharacterVerticalPhysics(p, intendedVx, intendedVz, dt, isDa
     p.onSlidePatch = isPointOnSlipperySurface(p.pos, p.team, p.id);
     if (p.onSlidePatch) {
       if (!wasOnSlidePatch || p.iceSlideSpeed <= 0.1) {
+        if (!wasOnSlidePatch) ctx.api.playSfx?.('ice_slide', { pos: p.pos });
         let entryVx = p.vel.x;
         let entryVz = p.vel.z;
         if (Math.hypot(entryVx, entryVz) < 0.6) {
@@ -1583,6 +1594,7 @@ export function stepCharacterVerticalPhysics(p, intendedVx, intendedVz, dt, isDa
         p.dashTimer = p.dashMaxDuration || DASH_EVO_META.bounce.duration;
         p.dashBouncesLeft -= 1;
         spawnParticles(p.pos, 0xfacc15, 14);
+        ctx.api.playSfx?.('dash_wall_bounce', { pos: p.pos, bounceIndex: 3 - p.dashBouncesLeft });
       }
     }
   }
@@ -2272,6 +2284,7 @@ export function applyWorldStateFromHost(snapshot) {
         p.backRevealed = true;
         rosterDirty = true;
         if (p.team !== state.myTeam && state.phase === 'play') {
+          ctx.api.playSfx?.('back_reveal');
           const cInfo = COLORS[p.color];
           if (cInfo) {
             showToast(
@@ -2438,6 +2451,7 @@ function updateBackVisibility() {
       p.backRevealed = true;
       p.revealedTo[state.myTeam] = true;
       hudNeedsRefresh = true;
+      ctx.api.playSfx?.('back_reveal');
       const cInfo = COLORS[p.color];
       if (cInfo) {
         showToast(
@@ -2555,6 +2569,7 @@ function updateBalls(dt) {
               cancelUltimatePreview(false);
             }
             spawnParticles(ball.pos, COLORS[ball.color].hex, 10);
+            ctx.api.playSfx?.('ball_pickup', { pos: ball.pos });
             updateRosterHUD();
             updateUltHudWidget();
 
@@ -2634,6 +2649,7 @@ function checkBallGoal(ball) {
     state.allyPV += 1;
     state.roundAllyGoals += 1;
     spawnParticles(ball.pos, 0x38bdf8, 30);
+    ctx.api.playSfx?.(state.myTeam === 'ally' ? 'goal_ally' : 'goal_enemy');
     triggerGamepadRumble(320, 0.9, 0.7);
     broadcastToast(`🥅 <strong>BUT ! +1 Point (pt) pour l'Équipe Or !</strong>`, 4000);
     updateTopHUD();
@@ -2661,6 +2677,7 @@ function checkBallGoal(ball) {
     state.enemyPV += 1;
     state.roundEnemyGoals += 1;
     spawnParticles(ball.pos, 0xc084fc, 30);
+    ctx.api.playSfx?.(state.myTeam === 'enemy' ? 'goal_ally' : 'goal_enemy');
     triggerGamepadRumble(320, 0.9, 0.7);
     broadcastToast(`🥅 <strong>BUT ! +1 Point (pt) pour l'Équipe Violette !</strong>`, 4000);
     updateTopHUD();
@@ -2705,6 +2722,7 @@ function resolveContact(ally, enemy) {
       (enemy.waterShieldTimer > 0 || isPointProtectedByWaterWave(enemy.pos.x, enemy.pos.z, 1.35))
     ) {
       spawnParticles(enemy.pos, 0x38bdf8, 16);
+      ctx.api.playSfx?.('water_shield_block', { pos: enemy.pos });
       broadcastToast(
         `🛡️💧 <strong>Protection d'Eau !</strong> Violette ${enemy.role} est protégée contre le Feu de Or ${ally.role} !`,
         2600
@@ -2716,6 +2734,7 @@ function resolveContact(ally, enemy) {
     state.allyPE += 1;
     state.roundAllyKills += 1;
     spawnParticles(enemy.pos, COLORS[ally.color].hex, 22);
+    ctx.api.playSfx?.(state.myTeam === 'ally' ? 'intercept_ally' : 'intercept_enemy', { pos: enemy.pos });
     triggerGamepadRumble(200, 0.7, 0.5);
     broadcastToast(
       `💥 <strong>Interception !</strong> Équipe Or ${ally.role} (${COLORS[ally.color].name}) fait asseoir Violette ${enemy.role} (${COLORS[enemy.color].name}) → <strong>+1 🪙 PO Or !</strong>`,
@@ -2743,6 +2762,7 @@ function resolveContact(ally, enemy) {
       (ally.waterShieldTimer > 0 || isPointProtectedByWaterWave(ally.pos.x, ally.pos.z, 1.35))
     ) {
       spawnParticles(ally.pos, 0x38bdf8, 16);
+      ctx.api.playSfx?.('water_shield_block', { pos: ally.pos });
       broadcastToast(
         `🛡️💧 <strong>Protection d'Eau !</strong> Or ${ally.role} est protégée contre le Feu de Violette ${enemy.role} !`,
         2600
@@ -2754,6 +2774,7 @@ function resolveContact(ally, enemy) {
     state.enemyPE += 1;
     state.roundEnemyKills += 1;
     spawnParticles(ally.pos, COLORS[enemy.color].hex, 22);
+    ctx.api.playSfx?.(state.myTeam === 'enemy' ? 'intercept_ally' : 'intercept_enemy', { pos: ally.pos });
     triggerGamepadRumble(200, 0.7, 0.5);
     broadcastToast(
       `🛑 <strong>Interception !</strong> Équipe Violette ${enemy.role} (${COLORS[enemy.color].name}) fait asseoir Or ${ally.role} (${COLORS[ally.color].name}) → <strong>+1 🪙 PO Violette !</strong>`,
@@ -2781,6 +2802,7 @@ function resolveContact(ally, enemy) {
     ally.rule1Partner = enemy;
     enemy.rule1Partner = ally;
     spawnParticles(ally.pos, 0xfacc15, 16);
+    ctx.api.playSfx?.('rule1_lock', { pos: ally.pos });
     broadcastToast(
       `⚡ <strong>RÈGLE 1 DE ROCKET LEAGUE !</strong> Or ${ally.role} et Violette ${enemy.role} ont toutes deux la couleur ${COLORS[ally.color].name} : elles restent bloquées jusqu'à l'intervention d'une 3e joueuse !`,
       5000
@@ -3008,6 +3030,11 @@ export function finishRound(reasonText, fromNetwork = false, networkBounties = [
     };
   }
 
+  if (allyWinsGame || enemyWinsGame) {
+    ctx.api.playSfx?.((allyWinsGame && state.myTeam === 'ally') || (enemyWinsGame && state.myTeam === 'enemy') ? 'victory' : 'defeat');
+  } else {
+    ctx.api.playSfx?.('round_end');
+  }
   showOnlyModal('round-end-modal');
 }
 

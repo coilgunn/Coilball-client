@@ -1010,6 +1010,7 @@ export function setCameraMode(mode, silent = false) {
   if (typeof updateMobileTouchHUD === 'function') {
     updateMobileTouchHUD();
   }
+  if (!silent) ctx.api.playSfx?.('cam_toggle', { mode: normalized });
 }
 
 export function toggleCameraMode() {
@@ -2392,6 +2393,7 @@ document.addEventListener('fullscreenchange', onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
 export function showOnlyModal(modalId) {
+  const prevVisible = getVisibleModalId();
   if (modalId !== 'options-modal') {
     cancelControlRebind();
   }
@@ -2404,6 +2406,10 @@ export function showOnlyModal(modalId) {
       el.classList.add('hidden');
     }
   });
+  const nextVisible = getVisibleModalId();
+  if (nextVisible !== prevVisible) {
+    ctx.api.playSfx?.(nextVisible ? 'ui_modal_open' : 'ui_modal_close');
+  }
   if (modalId) {
     pendingPointerLockOnEscapeKeyup = false;
     unlockPointer();
@@ -2422,6 +2428,7 @@ export function openOptionsModal(returnTarget = null) {
   optionsReturnModal = returnTarget;
   clearInputKeys();
   syncControlsSettingsUI();
+  ctx.api.syncAudioControlsUI?.();
   renderControlsCustomizer();
   updateDeviceToggleButtonsUI();
   showOnlyModal('options-modal');
@@ -2636,6 +2643,7 @@ export function selectControlledRole(role, options = {}) {
 
   const prevRole = state.controlledRole;
   state.controlledRole = role;
+  if (!options.silent && prevRole !== role) ctx.api.playSfx?.('role_switch', { role });
   state.ultPreviewActive = false;
   if (state.passCharge && state.passCharge.active) {
     ctx.api.cancelPassCharge?.();

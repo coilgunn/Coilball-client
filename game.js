@@ -59,6 +59,7 @@ import {
   initUI
 } from './src/ui.js';
 import { initAI } from './src/ai.js';
+import { initAudio, playSfx, syncMusicState } from './src/audio.js';
 import {
   resetMatchStateToMenu,
   executePracticeAction,
@@ -126,10 +127,13 @@ buildParkEnvironment();
 initUltimates();
 initAI();
 initPhysics();
+initAudio();
 initUI();
 initModes();
 
 Object.assign(ctx.api, {
+  playSfx,
+  syncMusicState,
   isMenuOpen,
   showToast,
   broadcastToast,
@@ -228,6 +232,7 @@ function animate(now) {
   lowSpecFrameCounter++;
 
   pollGamepad(dt);
+  syncMusicState(state.phase, isMenuOpen());
   updateGameplay(dt);
   updateTutorialSequence(dt);
   updateUltimatePreview3D(dt);

@@ -483,6 +483,47 @@
         </div>
       </div>
 
+      <!-- Section Audio & Ambiance -->
+      <div class="options-audio-section" id="options-audio-section">
+        <div class="options-audio-header">
+          <h4>🎵 Audio &amp; Ambiance</h4>
+          <div class="options-audio-actions">
+            <button type="button" id="btn-audio-mute" class="action-btn active-mode-pill">
+              🔊 Son : ACTIVÉ
+            </button>
+            <button type="button" id="btn-audio-test" class="action-btn">
+              ✨ Tester
+            </button>
+          </div>
+        </div>
+
+        <div class="options-audio-grid">
+          <label class="audio-slider-row" for="input-audio-master">
+            <span>🔊 Volume général</span>
+            <input id="input-audio-master" type="range" min="0" max="100" step="1" value="72" />
+            <strong id="audio-master-val">72%</strong>
+          </label>
+
+          <label class="audio-slider-row" for="input-audio-music">
+            <span>🎶 Musique (prépa &amp; action)</span>
+            <input id="input-audio-music" type="range" min="0" max="100" step="1" value="42" />
+            <strong id="audio-music-val">42%</strong>
+          </label>
+
+          <label class="audio-slider-row" for="input-audio-sfx">
+            <span>💥 Bruitages de jouabilité</span>
+            <input id="input-audio-sfx" type="range" min="0" max="100" step="1" value="90" />
+            <strong id="audio-sfx-val">90%</strong>
+          </label>
+
+          <label class="audio-slider-row" for="input-audio-ui">
+            <span>🖱️ Sons d’interface</span>
+            <input id="input-audio-ui" type="range" min="0" max="100" step="1" value="75" />
+            <strong id="audio-ui-val">75%</strong>
+          </label>
+        </div>
+      </div>
+
       <!-- Section 2 : Contrôles & Vision -->
       <div class="options-section">
         <div class="options-section-title">🕹️ Contrôles &amp; Caméra</div>

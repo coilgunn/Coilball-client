@@ -238,6 +238,7 @@ export function toggleUltimatePreview() {
   if (!canPlayerUseUltimate(p, true)) return;
   state.ultPreviewActive = true;
   state.ultPreviewAimAngle = getUltimateAimAngle(p);
+  ctx.api.playSfx?.('ult_aim');
   const meta = getUltimateMeta(p.color, p);
   ctx.api.showToast(
     `${meta.icon} <strong>Visée Ultimate : ${meta.name}</strong> — <strong>Clic Gauche</strong> pour déclencher (<strong>R</strong> pour annuler)`,
@@ -254,6 +255,7 @@ export function cancelUltimatePreview(showFeedback = false) {
   state.ultPreviewActive = false;
   if (ultPreviewGroup) ultPreviewGroup.visible = false;
   if (showFeedback) {
+    ctx.api.playSfx?.('ult_cancel');
     ctx.api.showToast('✖️ <strong>Visée Ultimate annulée.</strong>', 1300);
   }
   updateUltHudWidget();
@@ -799,6 +801,7 @@ function spawnFireLaserUltimate(caster, aimAngle, evolved = false, lockAim = fal
   chargeBallGroup.scale.setScalar(0.18);
 
   spawnParticles(new THREE.Vector3(ox, oy, oz), 0xff6b00, 14);
+  ctx.api.playSfx?.('ult_fire_charge', { pos: caster.pos, evolved, global: true });
 
   activeFireLasers.push({
     caster,
@@ -965,6 +968,7 @@ function updateFireLasers(dt) {
         updateFireLaserElectricArcs(f, f.currentLen, 1.0);
         spawnParticles(new THREE.Vector3(f.ox, f.oy, f.oz), 0xffffff, 18);
         spawnParticles(new THREE.Vector3(f.ox, f.oy, f.oz), 0xff6b00, 22);
+        ctx.api.playSfx?.('ult_fire_beam', { pos: { x: f.ox, y: f.oy, z: f.oz }, evolved: f.evolved, global: true });
       }
       continue;
     }
@@ -1011,6 +1015,7 @@ function updateFireLasers(dt) {
             if (target.waterShieldTimer > 0 || isPointProtectedByWaterWave(target.pos.x, target.pos.z, 1.35)) {
               spawnParticles(target.pos, 0x38bdf8, 22);
               spawnParticles(target.pos, 0xffffff, 14);
+              ctx.api.playSfx?.('water_shield_block', { pos: target.pos });
               ctx.api.broadcastToast(
                 `🛡️💧 <strong>Protégée par l'Eau !</strong> ${target.role} résiste au Rayon Plasma de ${f.casterRole} !`,
                 3000
@@ -1028,6 +1033,7 @@ function updateFireLasers(dt) {
             }
             spawnParticles(target.pos, 0xff6b00, 26);
             spawnParticles(target.pos, 0xffffff, 18);
+            ctx.api.playSfx?.('ult_fire_hit', { pos: target.pos, ally: f.team === state.myTeam, global: true });
             const teamName = f.team === 'ally' ? 'Équipe Or' : 'Équipe Violette';
             ctx.api.broadcastToast(
               `🔥🎯 <strong>SNIPE PLASMA !</strong> ${teamName} ${f.casterRole} assoit ${target.role} à distance → <strong>+1 🪙 PO !</strong>`,
@@ -1160,6 +1166,7 @@ function spawnLeafWallUltimate(caster, aimAngle = null) {
   plantLeafSproutNode(wall, caster.pos.x, caster.pos.y, caster.pos.z);
   spawnParticles(caster.pos, 0x22c55e, 22);
   spawnParticles(caster.pos, 0x86efac, 14);
+  ctx.api.playSfx?.('ult_leaf_sprint', { pos: caster.pos, evolved, global: true });
   activeLeafWalls.push(wall);
 }
 
@@ -1456,6 +1463,7 @@ function updateLeafWalls(dt) {
         wall.growAnim = 0.01;
         growLeafWallMesh(wall);
         wall.treeWallGroup.scale.set(1, 0.05, 1);
+        ctx.api.playSfx?.('ult_leaf_grow', { pos: wall.nodes[0], evolved: wall.evolved, global: true });
         ctx.api.markNavDynamicDirty?.();
 
         // Repousser immédiatement les joueuses qui se trouveraient dans le mur au moment où il pousse
@@ -1691,6 +1699,7 @@ function spawnWaterWaveUltimate(caster, aimAngle, evolvedOverride = null, preser
 
   spawnParticles(caster.pos, 0x38bdf8, 26);
   spawnParticles(caster.pos, 0xe0f2fe, 16);
+  ctx.api.playSfx?.('ult_water_wave', { pos: caster.pos, evolved, global: true });
 
   const waveObj = {
     caster,
@@ -1756,6 +1765,7 @@ function triggerWaterWavePull(caster) {
   });
 
   spawnParticles(caster.pos, 0x0ea5e9, 24);
+  ctx.api.playSfx?.('ult_water_pull', { pos: caster.pos, global: true });
   ctx.api.broadcastToast(
     pulledCount > 0
       ? `💧🔄 <strong>REFLUX MARIN !</strong> ${caster.role} ramène <strong>${pulledCount}</strong> joueuse(s) touchée(s) !`

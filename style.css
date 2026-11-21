@@ -2312,6 +2312,62 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
   gap: 8px;
 }
 
+.options-audio-section {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.options-audio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.options-audio-header h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #e0f2fe;
+}
+
+.options-audio-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.options-audio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px 14px;
+}
+
+.audio-slider-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 40px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.audio-slider-row input[type="range"] {
+  width: 100%;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.audio-slider-row strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+}
+
 /* Modale Choix d'Arène */
 .arena-modal-card {
   max-width: 860px;
