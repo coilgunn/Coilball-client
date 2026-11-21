@@ -84,6 +84,7 @@ let pendingTutorialIntro = false;
 export function initModes() {
   ctx.api.dismissTutorialIntro = dismissTutorialIntro;
   ctx.api.completeTutorialToPractice = completeTutorialToPractice;
+  ctx.api.advanceTutorialStep = advanceTutorialStep;
 }
 
 export function resetMatchStateToMenu() {
@@ -128,6 +129,7 @@ export function resetMatchStateToMenu() {
   state.controlledRole = 'G';
   state.tutorialStep = 1;
   state.tutorialChecklist = {};
+  state.tutorialAwaitingConfirm = false;
   state.tutorialPreserveStep = false;
   state.tutorialIntroVisible = false;
   state.restoreMapAfterTutorial = false;
@@ -1765,7 +1767,20 @@ function updateTutorialSequenceHUD() {
   if (btnRefUlt) btnRefUlt.classList.toggle('hidden', true);
   if (btnToPractice) btnToPractice.classList.toggle('hidden', step === TUTORIAL_TOTAL_STEPS);
   if (btnNext) {
-    btnNext.textContent = step < TUTORIAL_TOTAL_STEPS ? 'Suivant ▶' : '🧪 Mode Pratique ▶';
+    const ready = !!state.tutorialAwaitingConfirm;
+    btnNext.classList.toggle('tut-next-ready', ready);
+    if (ready) {
+      btnNext.textContent =
+        step < TUTORIAL_TOTAL_STEPS
+          ? state.mobileMode
+            ? 'Continuer ▶'
+            : 'Continuer [Espace] ▶'
+          : state.mobileMode
+          ? 'Mode Pratique ▶'
+          : 'Mode Pratique [Espace] ▶';
+    } else {
+      btnNext.textContent = step < TUTORIAL_TOTAL_STEPS ? 'Suivant ▶' : '🧪 Mode Pratique ▶';
+    }
   }
 }
 
@@ -1808,6 +1823,7 @@ export function completeTutorialToPractice(withCongrats = true) {
   state.mode = 'practice';
   state.phase = 'play';
   state.myLockedRole = null;
+  state.tutorialAwaitingConfirm = false;
   state.tutorialPreserveStep = false;
   state.practiceShopPreservePlay = false;
   state.practiceCursorFree = false;
@@ -1956,36 +1972,41 @@ export function completeTutorialToPractice(withCongrats = true) {
   }
 }
 
+export function advanceTutorialStep() {
+  if (state.mode !== 'tutorial' || state.phase !== 'play') return false;
+  if (state.tutorialStep < TUTORIAL_TOTAL_STEPS) {
+    enterTutorialStep(state.tutorialStep + 1);
+  } else {
+    completeTutorialToPractice(true);
+  }
+  return true;
+}
+
 function evaluateTutorialStepCompletion() {
   if (state.mode !== 'tutorial' || state.phase !== 'play') return;
   const step = state.tutorialStep;
   const def = getTutorialStepDef(step);
   if (!def) return;
   const allDone = def.items.every((it) => !!state.tutorialChecklist[it.key]);
-  if (allDone) {
+  if (allDone && !state.tutorialAwaitingConfirm) {
+    state.tutorialAwaitingConfirm = true;
     ctx.api.playSfx?.(step < TUTORIAL_TOTAL_STEPS ? 'tut_step_clear' : 'victory');
     if (step < TUTORIAL_TOTAL_STEPS) {
-      if (tutorialAutoAdvanceTimer) clearTimeout(tutorialAutoAdvanceTimer);
-      showToast(`✨ <strong>${def.title} validée !</strong> Étape ${step + 1}/${TUTORIAL_TOTAL_STEPS}...`, 1800);
-      tutorialAutoAdvanceTimer = setTimeout(() => {
-        tutorialAutoAdvanceTimer = null;
-        if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === step) {
-          enterTutorialStep(step + 1);
-        }
-      }, 1150);
-    } else {
-      if (tutorialFinishTimer) clearTimeout(tutorialFinishTimer);
       showToast(
-        '🎉 <strong>Bravo, tutoriel terminé !</strong> Passage en <strong>Mode Pratique</strong>...',
-        2400
+        state.mobileMode
+          ? `✨ <strong>${def.title} validée !</strong> Appuyez sur <strong>Continuer ▶</strong> pour passer à l’étape ${step + 1}/${TUTORIAL_TOTAL_STEPS}.`
+          : `✨ <strong>${def.title} validée !</strong> Appuyez sur <strong>[Espace]</strong> (ou <strong>Continuer ▶</strong>) pour passer à l’étape ${step + 1}/${TUTORIAL_TOTAL_STEPS}.`,
+        8000
       );
-      tutorialFinishTimer = setTimeout(() => {
-        tutorialFinishTimer = null;
-        if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === TUTORIAL_TOTAL_STEPS) {
-          completeTutorialToPractice(true);
-        }
-      }, 1900);
+    } else {
+      showToast(
+        state.mobileMode
+          ? '🎉 <strong>Bravo, tutoriel terminé !</strong> Appuyez sur <strong>Mode Pratique ▶</strong> pour continuer.'
+          : '🎉 <strong>Bravo, tutoriel terminé !</strong> Appuyez sur <strong>[Espace]</strong> (ou <strong>Mode Pratique ▶</strong>) pour continuer.',
+        8000
+      );
     }
+    updateTutorialSequenceHUD();
   }
 }
 
@@ -2066,6 +2087,7 @@ export function enterTutorialStep(stepNum) {
   const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, Number(stepNum) || 1));
   state.tutorialStep = step;
   state.tutorialChecklist = {};
+  state.tutorialAwaitingConfirm = false;
   state.ultPreviewActive = false;
   hideUltimatePreview();
 
@@ -2516,6 +2538,7 @@ export function startNewMatch(mode, options = {}) {
   state.enemyPE = 0;
   state.tutorialStep = 1;
   state.tutorialChecklist = {};
+  state.tutorialAwaitingConfirm = false;
   state.tutorialPreserveStep = false;
   state.tutorialIntroVisible = false;
   state.restoreMapAfterTutorial = false;

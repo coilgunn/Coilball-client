@@ -492,6 +492,7 @@ export const state = {
   phase: 'menu',       // 'menu' | 'prep' | 'play' | 'round_end' | 'game_over'
   tutorialStep: 1,
   tutorialChecklist: {},
+  tutorialAwaitingConfirm: false,
   tutorialPreserveStep: false,
   tutorialIntroVisible: false,
   practiceCursorFree: false,

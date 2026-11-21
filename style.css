@@ -826,6 +826,17 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
   margin-top: 1px;
 }
 
+#btn-tut-next.tut-next-ready {
+  border-color: #fde047;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
+  animation: tutNextPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes tutNextPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
 /* PROCHAIN OBJECTIF EN SURBRILLANCE AU-DESSUS DE LA TÊTE DU PERSO (TUTORIEL) */
 #tut-overhead-objective {
   position: fixed;

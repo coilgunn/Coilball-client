@@ -3801,13 +3801,20 @@ export function updateFloatingLabels() {
       } else {
         tutOverheadEl.classList.add('hidden');
       }
-    } else if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === TUTORIAL_STEPS.MOBA && !isMenuOpen() && controlled) {
+    } else if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialAwaitingConfirm && !isMenuOpen() && controlled) {
       _tmpProjVec.set(controlled.pos.x, controlled.pos.y + 2.95, controlled.pos.z);
       _tmpProjVec.project(camera);
       if (_tmpProjVec.z <= 1) {
         const ohX = Math.round(Math.max(110, Math.min(window.innerWidth - 110, _tmpProjVec.x * halfW + halfW)) * 2) / 2;
         const ohY = Math.round(Math.max(104, -(_tmpProjVec.y * halfH) + halfH - 28) * 2) / 2;
-        const doneMsg = '🎉 Bravo ! Tutoriel terminé — passage en Mode Pratique...';
+        const doneMsg =
+          state.tutorialStep < TUTORIAL_TOTAL_STEPS
+            ? state.mobileMode
+              ? '✨ Étape validée ! Tapez Continuer ▶'
+              : '✨ Étape validée ! [Espace] pour continuer'
+            : state.mobileMode
+            ? '🎉 Tutoriel terminé ! Tapez Mode Pratique ▶'
+            : '🎉 Tutoriel terminé ! [Espace] → Mode Pratique';
         tutOverheadEl.classList.remove('hidden');
         tutOverheadEl.style.left = `${ohX}px`;
         tutOverheadEl.style.top = `${ohY}px`;
@@ -5227,11 +5234,7 @@ function bindUIButtons() {
   if (btnTutNext) {
     btnTutNext.onclick = () => {
       if (state.mode !== 'tutorial') return;
-      if (state.tutorialStep < TUTORIAL_TOTAL_STEPS) {
-        ctx.api.enterTutorialStep(state.tutorialStep + 1);
-      } else {
-        ctx.api.completeTutorialToPractice?.(true);
-      }
+      ctx.api.advanceTutorialStep?.();
     };
   }
 
@@ -6228,6 +6231,19 @@ function registerUIGlobalListeners() {
       if (state.ultPreviewActive && matchesControl('ultConfirm', e.code) && !e.repeat) {
         e.preventDefault();
         confirmUltimateTrigger();
+        return;
+      }
+
+      if (
+        state.mode === 'tutorial' &&
+        state.phase === 'play' &&
+        !state.tutorialIntroVisible &&
+        state.tutorialAwaitingConfirm &&
+        e.code === 'Space' &&
+        !e.repeat
+      ) {
+        e.preventDefault();
+        ctx.api.advanceTutorialStep?.();
         return;
       }
 
