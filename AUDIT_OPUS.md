@@ -12,8 +12,8 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **P4** | Découpage du monolithe en ES Modules (`src/`) | `game.js` + `src/*.js` (12 fichiers) | **Effectuée ✅** | Architecture sans bundler ni cycle (`ctx.api` câblé dans `game.js`), enrichie avec `src/nav.js` et `src/audio.js`. |
 | **P1 (Critique)** | Synchronisation P2P & machine d’état réseau | `src/net.js` + `src/physics.js` + `src/modes.js` + `src/ultimates.js` | **Effectuée & déployée ✅** | `C1`, `H1`–`H5`, `M1`–`M6` (ciblage `targetPeerId`, `netForceSeq`, resync `MP_LATE_ENTITIES`, anti-double-relais, repli WS→PeerJS). |
-| **P2 (Haute)** | Physique, collisions multi-cartes (`rift` inclus) & Ultimates | `src/physics.js` + `src/ultimates.js` + `src/world.js` | **Effectuée localement ✅** | Anti-tunneling sous-pas (`stepCharacterVerticalPhysics`), retour Boomerang plafonné, `rayToCapsuleDistance2D` Faille LoL, garde `sitting`/Règle 1, séparation Y canopée/sol sur `hitsGrownLeafWall`/`pushOutFromLeafWalls`/`updateWaterWaves`/`computeFireLaserMaxDist`, re-clamp final dans `clampToField`. |
-| **P3 (Moyenne)** | Décisionnel de l’IA & routage (`rift`, Mont-Royal, Canopée) | `src/ai.js` + `src/nav.js` | **Effectuée localement ✅** | Routage au sol par A* (`computeMobaPath`/`hasGridLOS`) remplaçant les hubs fixes `rift`, évitement des `activeToolWalls`, budget A* augmenté sur `rift` (`176×176`), correctifs grille `nav.js` pour Mont-Royal/canopée, ciblage ballon/proie au plus proche et garde `waterShieldTimer`/altitude pour Ultimates IA. |
+| **P2 (Haute)** | Physique, collisions multi-cartes (`rift` inclus) & Ultimates | `src/physics.js` + `src/ultimates.js` + `src/world.js` | **Effectuée & déployée ✅** | Anti-tunneling sous-pas (`stepCharacterVerticalPhysics`), retour Boomerang plafonné, `rayToCapsuleDistance2D` Faille LoL, garde `sitting`/Règle 1, séparation Y canopée/sol sur `hitsGrownLeafWall`/`pushOutFromLeafWalls`/`updateWaterWaves`/`computeFireLaserMaxDist`, re-clamp final dans `clampToField`. |
+| **P3 (Moyenne)** | Décisionnel de l’IA & routage (`rift`, Mont-Royal, Canopée) | `src/ai.js` + `src/nav.js` | **Effectuée & déployée ✅** | Routage au sol par A* (`computeMobaPath`/`hasGridLOS`) remplaçant les hubs fixes `rift`, évitement des `activeToolWalls`, budget A* augmenté sur `rift` (`176×176`), correctifs grille `nav.js` pour Mont-Royal/canopée, ciblage ballon/proie au plus proche et garde `waterShieldTimer`/altitude pour Ultimates IA. |
 
 ### Où ne PAS dépenser de quota Opus 5.5
 - Retouches UI / HTML / CSS / modales (`index.html`, `style.css`, `src/ui.js` hors logique réseau/jeu).
@@ -42,7 +42,7 @@
 
 ---
 
-## 3. Détail des correctifs P2 & P3 appliqués (session courante)
+## 3. Détail des correctifs P2 & P3 appliqués et déployés (`46a13ad` → `https://coilball.vercel.app`)
 
 ### P2 — Physique, Collisions multi-cartes (`rift` inclus) & Ultimates
 - **[src/world.js](src/world.js)** (`rayToCapsuleDistance2D`) : lorsque l’origine du rayon est à l’intérieur d’une capsule `JUNGLE_WALLS` (`rift`), retourne `Math.min(minHitDist, maxDist)` au lieu de `maxDist` afin de bloquer le laser Feu et la LOS contre le mur.
@@ -69,6 +69,7 @@
 
 ---
 
-## 4. Points de vigilance avant déploiement
-- Après toute modification locale : exécuter `npm.cmd run build` + `node --check` sur `dist/game.js` et `dist/src/*.js` + vérification des IDs DOM.
+## 4. Workflow & points de vigilance avant déploiement
+- **Délégation & outillage** : tâches banales/isolées déléguées par défaut à **Nemotron 3 Ultra (free)** (`openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`, `autoApprove: false`, règle globale `C:\Users\coilm\.gemini\config\GEMINI.md`) ; seuil de lecture `context-mode` réglé à `32 KB`.
+- Après toute modification locale de code : exécuter `npm.cmd run build` + `node --check` sur `dist/game.js` et `dist/src/*.js` + vérification des IDs DOM.
 - Demander confirmation explicite avant `git commit` / `git push` (preview vs `main` production) ou `vercel.cmd deploy`.
