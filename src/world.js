@@ -836,7 +836,7 @@ export function distSqPointToSegment2D(px, pz, ax, az, bx, bz) {
 }
 
 export function rayToCapsuleDistance2D(ox, oz, dirX, dirZ, ax, az, bx, bz, r, maxDist, minHitDist = 0.15) {
-  if (distSqPointToSegment2D(ox, oz, ax, az, bx, bz) <= r * r) return maxDist;
+  if (distSqPointToSegment2D(ox, oz, ax, az, bx, bz) <= r * r) return Math.min(minHitDist, maxDist);
   let best = maxDist;
   const checkEnd = (cx, cz) => {
     const vx = cx - ox;

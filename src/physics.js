@@ -655,7 +655,7 @@ function triggerBoomerangReturn(p) {
   const dist = Math.hypot(dx, dz);
   spawnParticles(p.pos, 0x38bdf8, 14);
   if (dist > 0.35) {
-    const returnDur = 0.2;
+    const returnDur = Math.max(0.2, dist / 65);
     p.dashKind = 'boomerang_return';
     p.dashTimer = returnDur;
     p.dashMaxDuration = returnDur;
@@ -1541,76 +1541,99 @@ export function stepCharacterVerticalPhysics(p, intendedVx, intendedVz, dt, isDa
     }
   }
 
-  p.pos.x += moveVx * dt;
-  p.pos.z += moveVz * dt;
+  const totalMove = Math.hypot(moveVx, moveVz) * dt;
+  const subSteps = Math.min(8, Math.max(1, Math.ceil(totalMove / 0.65)));
+  const stepDt = dt / subSteps;
+  let curVx = moveVx;
+  let curVz = moveVz;
+  let bouncedThisFrame = false;
 
-  const preClampX = p.pos.x;
-  const preClampZ = p.pos.z;
-
-  // Accrochage à l'entrée basse d'une rampe de corde/bois (|X| : 55,6..58,0)
-  if (!p.onCanopy) {
-    const entrySurf = getCanopySurfaceY(p.pos.x, p.pos.z);
-    if (
-      entrySurf &&
-      (entrySurf.zone === 'westRamp' || entrySurf.zone === 'eastRamp') &&
-      Math.abs(p.pos.x) >= CANOPY_SPEC.ascentAttachMinX &&
-      Math.abs(p.pos.z) <= CANOPY_SPEC.ascentHalfZ
-    ) {
-      p.onCanopy = true;
+  for (let s = 0; s < subSteps; s++) {
+    if (s > 0) {
+      if (isDash && p.dashKind === 'bounce' && bouncedThisFrame) {
+        const dSpeed = p.dashSpeed || DASH_SPEED;
+        curVx = p.dashDirX * dSpeed;
+        curVz = p.dashDirZ * dSpeed;
+      } else if (!isDash && p.onSlidePatch && p.iceSlideSpeed > 0.1) {
+        curVx = p.iceSlideDirX * p.iceSlideSpeed;
+        curVz = p.iceSlideDirZ * p.iceSlideSpeed;
+      }
     }
-  }
 
-  clampToField(p.pos, 0.72, null, {
-    onCanopy: !!p.onCanopy,
-    isAirborne: false
-  });
+    p.pos.x += curVx * stepDt;
+    p.pos.z += curVz * stepDt;
 
-  // Glissement le long d'un mur / obstacle si une plaque de givre y pousse la joueuse
-  if (!isDash && p.onSlidePatch && p.iceSlideSpeed > 0.1) {
-    const corX = p.pos.x - preClampX;
-    const corZ = p.pos.z - preClampZ;
-    const corLen = Math.hypot(corX, corZ);
-    if (corLen > 0.015) {
-      const nx = corX / corLen;
-      const nz = corZ / corLen;
-      const dot = p.iceSlideDirX * nx + p.iceSlideDirZ * nz;
-      if (dot < -0.1) {
-        const tx = p.iceSlideDirX - dot * nx;
-        const tz = p.iceSlideDirZ - dot * nz;
-        const tLen = Math.hypot(tx, tz);
-        if (tLen > 0.15) {
-          p.iceSlideDirX = tx / tLen;
-          p.iceSlideDirZ = tz / tLen;
-        } else {
-          p.iceSlideSpeed = 0;
+    const preClampX = p.pos.x;
+    const preClampZ = p.pos.z;
+
+    // Accrochage à l'entrée basse d'une rampe de corde/bois (|X| : 55,6..58,0)
+    if (!p.onCanopy) {
+      const entrySurf = getCanopySurfaceY(p.pos.x, p.pos.z);
+      if (
+        entrySurf &&
+        (entrySurf.zone === 'westRamp' || entrySurf.zone === 'eastRamp') &&
+        Math.abs(p.pos.x) >= CANOPY_SPEC.ascentAttachMinX &&
+        Math.abs(p.pos.z) <= CANOPY_SPEC.ascentHalfZ
+      ) {
+        p.onCanopy = true;
+      }
+    }
+
+    clampToField(p.pos, 0.72, null, {
+      onCanopy: !!p.onCanopy,
+      isAirborne: false
+    });
+
+    // Glissement le long d'un mur / obstacle si une plaque de givre y pousse la joueuse
+    if (!isDash && p.onSlidePatch && p.iceSlideSpeed > 0.1) {
+      const corX = p.pos.x - preClampX;
+      const corZ = p.pos.z - preClampZ;
+      const corLen = Math.hypot(corX, corZ);
+      if (corLen > 0.015) {
+        const nx = corX / corLen;
+        const nz = corZ / corLen;
+        const dot = p.iceSlideDirX * nx + p.iceSlideDirZ * nz;
+        if (dot < -0.1) {
+          const tx = p.iceSlideDirX - dot * nx;
+          const tz = p.iceSlideDirZ - dot * nz;
+          const tLen = Math.hypot(tx, tz);
+          if (tLen > 0.15) {
+            p.iceSlideDirX = tx / tLen;
+            p.iceSlideDirZ = tz / tLen;
+          } else {
+            p.iceSlideSpeed = 0;
+          }
+        }
+      }
+    }
+
+    // Dash Rebondissant : rebondit sur les murs/obstacles et réinitialise la distance
+    if (isDash && p.dashKind === 'bounce' && p.dashBouncesLeft > 0 && !bouncedThisFrame) {
+      const corX = p.pos.x - preClampX;
+      const corZ = p.pos.z - preClampZ;
+      const corLen = Math.hypot(corX, corZ);
+      if (corLen > 0.015) {
+        const nx = corX / corLen;
+        const nz = corZ / corLen;
+        const dot = p.dashDirX * nx + p.dashDirZ * nz;
+        if (dot < -0.18) {
+          let rx = p.dashDirX - 2 * dot * nx;
+          let rz = p.dashDirZ - 2 * dot * nz;
+          const rLen = Math.hypot(rx, rz) || 1;
+          p.dashDirX = rx / rLen;
+          p.dashDirZ = rz / rLen;
+          p.facingAngle = Math.atan2(p.dashDirX, p.dashDirZ);
+          p.dashTimer = p.dashMaxDuration || DASH_EVO_META.bounce.duration;
+          p.dashBouncesLeft -= 1;
+          bouncedThisFrame = true;
+          spawnParticles(p.pos, 0xfacc15, 14);
+          ctx.api.playSfx?.('dash_wall_bounce', { pos: p.pos, bounceIndex: 3 - p.dashBouncesLeft });
         }
       }
     }
   }
-
-  // Dash Rebondissant : rebondit sur les murs/obstacles et réinitialise la distance
-  if (isDash && p.dashKind === 'bounce' && p.dashBouncesLeft > 0) {
-    const corX = p.pos.x - preClampX;
-    const corZ = p.pos.z - preClampZ;
-    const corLen = Math.hypot(corX, corZ);
-    if (corLen > 0.015) {
-      const nx = corX / corLen;
-      const nz = corZ / corLen;
-      const dot = p.dashDirX * nx + p.dashDirZ * nz;
-      if (dot < -0.18) {
-        let rx = p.dashDirX - 2 * dot * nx;
-        let rz = p.dashDirZ - 2 * dot * nz;
-        const rLen = Math.hypot(rx, rz) || 1;
-        p.dashDirX = rx / rLen;
-        p.dashDirZ = rz / rLen;
-        p.facingAngle = Math.atan2(p.dashDirX, p.dashDirZ);
-        p.dashTimer = p.dashMaxDuration || DASH_EVO_META.bounce.duration;
-        p.dashBouncesLeft -= 1;
-        spawnParticles(p.pos, 0xfacc15, 14);
-        ctx.api.playSfx?.('dash_wall_bounce', { pos: p.pos, bounceIndex: 3 - p.dashBouncesLeft });
-      }
-    }
-  }
+  moveVx = curVx;
+  moveVz = curVz;
 
   // Dash Glissant : laisse des plaques de surface glissante derrière soi
   if (isDash && p.dashKind === 'slide') {
@@ -2755,6 +2778,7 @@ function checkPlayerCollisions() {
 
   for (const ally of allies) {
     for (const enemy of enemies) {
+      if (ally.state === 'sitting' || enemy.state === 'sitting') continue;
       if (ally.state === 'rule1' && ally.rule1Partner === enemy) continue;
       if (Math.abs(ally.pos.y - enemy.pos.y) >= 1.85) continue;
       const dist = Math.hypot(ally.pos.x - enemy.pos.x, ally.pos.z - enemy.pos.z);
@@ -2887,6 +2911,21 @@ function resolveContact(ally, enemy) {
     enemy.state = 'rule1';
     ally.rule1Partner = enemy;
     enemy.rule1Partner = ally;
+    for (const pl of [ally, enemy]) {
+      pl.vel.set(0, 0, 0);
+      pl.vy = 0;
+      pl.isAirborne = false;
+      pl.airSource = null;
+      pl.isLaunching = false;
+      pl.dashTimer = 0;
+      pl.leafUltTimer = 0;
+      const surf = getStructureSurfaceY(pl.pos.x, pl.pos.z, !!pl.onCanopy);
+      pl.onCanopy = surf.zone !== 'ground';
+      pl.pos.y = surf.y;
+      if (pl.team === state.myTeam && pl.role === state.controlledRole) {
+        cancelPassCharge();
+      }
+    }
     spawnParticles(ally.pos, 0xfacc15, 16);
     ctx.api.playSfx?.('rule1_lock', { pos: ally.pos });
     broadcastToast(
@@ -3176,21 +3215,24 @@ export function clampToField(pos, entityRadius = 0.72, bounceVel = null, opts = 
   const maxX = FIELD.width / 2 - entityRadius;
   const maxZ = FIELD.depth / 2 - entityRadius;
 
-  if (pos.x < -maxX) {
-    pos.x = -maxX;
-    if (bounceVel && bounceVel.x < 0) bounceVel.x *= -0.55;
-  } else if (pos.x > maxX) {
-    pos.x = maxX;
-    if (bounceVel && bounceVel.x > 0) bounceVel.x *= -0.55;
-  }
+  const clampArenaBounds = () => {
+    if (pos.x < -maxX) {
+      pos.x = -maxX;
+      if (bounceVel && bounceVel.x < 0) bounceVel.x *= -0.55;
+    } else if (pos.x > maxX) {
+      pos.x = maxX;
+      if (bounceVel && bounceVel.x > 0) bounceVel.x *= -0.55;
+    }
 
-  if (pos.z < -maxZ) {
-    pos.z = -maxZ;
-    if (bounceVel && bounceVel.z < 0) bounceVel.z *= -0.55;
-  } else if (pos.z > maxZ) {
-    pos.z = maxZ;
-    if (bounceVel && bounceVel.z > 0) bounceVel.z *= -0.55;
-  }
+    if (pos.z < -maxZ) {
+      pos.z = -maxZ;
+      if (bounceVel && bounceVel.z < 0) bounceVel.z *= -0.55;
+    } else if (pos.z > maxZ) {
+      pos.z = maxZ;
+      if (bounceVel && bounceVel.z > 0) bounceVel.z *= -0.55;
+    }
+  };
+  clampArenaBounds();
 
   // Réseau canopée : rambardes aériennes si onCanopy, sinon obstacles sol + troncs réels + soubassements bas
   const onCanopy = !!(opts && opts.onCanopy);
@@ -3219,7 +3261,7 @@ export function clampToField(pos, entityRadius = 0.72, bounceVel = null, opts = 
 
     for (let i = 0; i < JUNGLE_OBSTACLES.length; i++) {
       const obs = JUNGLE_OBSTACLES[i];
-      const obsMaxY = obs.kind === 'gazebo' ? 999 : obs.kind === 'waterfall' ? 25.0 : 3.8;
+      const obsMaxY = obs.kind === 'gazebo' ? 999 : obs.kind === 'waterfall' ? 25.0 : groundY + 3.8;
       if (yRef >= obsMaxY) continue;
       const minDist = obs.radius + entityRadius;
       const dx = pos.x - obs.x;
@@ -3346,10 +3388,14 @@ export function clampToField(pos, entityRadius = 0.72, bounceVel = null, opts = 
     if (!bounceVel && !skipGroundLandmarks) {
       enforceCanopyRails(pos, Math.min(entityRadius, 0.56));
     }
+    clampArenaBounds();
     return;
   }
 
-  if (!CANOPY_SPEC.hasCanopy) return;
+  if (!CANOPY_SPEC.hasCanopy) {
+    clampArenaBounds();
+    return;
+  }
 
   // Troncs des grands arbres (solides au sol et sous la canopée ; dégagés au-dessus du deck ou en Sky-Launch)
   if (yRef < CANOPY_SPEC.deckY - 0.5) {
@@ -3417,5 +3463,6 @@ export function clampToField(pos, entityRadius = 0.72, bounceVel = null, opts = 
       bounceVel
     );
   }
+  clampArenaBounds();
 }
 

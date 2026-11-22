@@ -19,8 +19,25 @@ import {
   canReactivateWaterUlt,
   triggerPlayerUltimate
 } from './ultimates.js';
+import { computeMobaPath, hasGridLOS, getNavVersion } from './nav.js';
 
 const THREE = ctx.THREE;
+
+function pickClosestEntity(list, px, pz) {
+  let best = null;
+  let bestDistSq = Infinity;
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    const dx = item.pos.x - px;
+    const dz = item.pos.z - pz;
+    const dSq = dx * dx + dz * dz;
+    if (dSq < bestDistSq) {
+      bestDistSq = dSq;
+      best = item;
+    }
+  }
+  return best;
+}
 
 export function initAI() {
   ctx.world.rebuildAIRouter = () => CANOPY_AI_ROUTER.rebuild(CANOPY_SPEC);
@@ -52,35 +69,6 @@ function steerAroundBoxObstacle(px, pz, baseDirX, baseDirZ, minX, maxX, minZ, ma
   sz += chosenZ * tanW;
   return { sx, sz };
 }
-
-const RIFT_NAV_HUBS = [
-  { x: -76, y: 0, z: 38 },
-  { x: -49, y: 0, z: 49 },
-  { x: -38, y: 0, z: 76 },
-  { x: 76, y: 0, z: -38 },
-  { x: 49, y: 0, z: -49 },
-  { x: 38, y: 0, z: -76 },
-  { x: -76, y: 0, z: 7 },
-  { x: -76, y: 0, z: -21 },
-  { x: -68, y: 0, z: -68 },
-  { x: -21, y: 0, z: -76 },
-  { x: 7, y: 0, z: -76 },
-  { x: -7, y: 0, z: 76 },
-  { x: 21, y: 0, z: 76 },
-  { x: 68, y: 0, z: 68 },
-  { x: 76, y: 0, z: 21 },
-  { x: 76, y: 0, z: -7 },
-  { x: -32, y: 0, z: 32 },
-  { x: -5.5, y: 0, z: 5.5 },
-  { x: 5.5, y: 0, z: -5.5 },
-  { x: -5.5, y: 0, z: -5.5 },
-  { x: 5.5, y: 0, z: 5.5 },
-  { x: 32, y: 0, z: -32 },
-  { x: -38, y: 0, z: -38 },
-  { x: 38, y: 0, z: 38 },
-  { x: -61.7, y: 0, z: -33.5 },
-  { x: 61.7, y: 0, z: 33.5 }
-];
 
 function steerAroundWallSegments(px, pz, baseDirX, baseDirZ, walls) {
   if (!walls || walls.length === 0) return { sx: 0, sz: 0 };
@@ -344,20 +332,42 @@ export function updateAIPlayer(p, dt) {
     if (p.color === 'red') {
       const snipeTarget = oppList.find((e) => {
         const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
-        return d > 10 && d < 62 && hasClearLineOfSight(p.pos, e.pos, false);
+        return (
+          d > 10 &&
+          d < 62 &&
+          Math.abs((e.pos.y || 0) - (p.pos.y || 0)) < 2.2 &&
+          !(e.waterShieldTimer > 0) &&
+          hasClearLineOfSight(p.pos, e.pos, false)
+        );
       });
       if (snipeTarget) {
         const aim = Math.atan2(snipeTarget.pos.x - p.pos.x, snipeTarget.pos.z - p.pos.z);
         triggerPlayerUltimate(p, aim, false);
       }
     } else if (p.color === 'blue') {
-      const waveTarget = oppList.find((e) => Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 22);
+      const waveTarget = oppList.find((e) => {
+        const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
+        return (
+          d < 22 &&
+          Math.abs((e.pos.y || 0) - (p.pos.y || 0)) < 2.2 &&
+          hasClearLineOfSight(p.pos, e.pos, false)
+        );
+      });
       if (waveTarget) {
         const aim = Math.atan2(waveTarget.pos.x - p.pos.x, waveTarget.pos.z - p.pos.z);
         triggerPlayerUltimate(p, aim, false);
       }
     } else if (p.color === 'green') {
-      triggerPlayerUltimate(p, p.facingAngle, false);
+      const hasCloseEnemy = oppList.some((e) => Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 32);
+      const hasCloseBall = balls.some(
+        (b) =>
+          b.state === 'ground' &&
+          b.color === p.color &&
+          Math.hypot(b.pos.x - p.pos.x, b.pos.z - p.pos.z) < 45
+      );
+      if (hasCloseEnemy || hasCloseBall) {
+        triggerPlayerUltimate(p, p.facingAngle, false);
+      }
     }
   }
   if (
@@ -401,9 +411,10 @@ export function updateAIPlayer(p, dt) {
     }
 
     if (!targetPos) {
-      const matchingBall = balls.find(
+      const matchingBalls = balls.filter(
         (b) => b.state === 'ground' && b.color === p.color
       );
+      const matchingBall = pickClosestEntity(matchingBalls, p.pos.x, p.pos.z);
       if (matchingBall) {
         targetPos = matchingBall.pos.clone();
       }
@@ -413,7 +424,10 @@ export function updateAIPlayer(p, dt) {
       const enemies = players.filter(
         (e) => e.team !== p.team && e.state === 'standing'
       );
-      const prey = enemies.find((e) => COLORS[p.color].beats === e.color);
+      const beatenEnemies = enemies.filter((e) => COLORS[p.color].beats === e.color);
+      const unshielded =
+        p.color === 'red' ? beatenEnemies.filter((e) => !(e.waterShieldTimer > 0)) : beatenEnemies;
+      const prey = pickClosestEntity(unshielded.length > 0 ? unshielded : beatenEnemies, p.pos.x, p.pos.z);
       if (prey) {
         targetPos = prey.pos.clone();
       } else if (enemies.length > 0) {
@@ -439,71 +453,92 @@ export function updateAIPlayer(p, dt) {
     if (curSurf) {
       steerTarget = CANOPY_AI_ROUTER.getSteerTarget(p, curSurf, targetPos);
     }
-  } else if (state.mapId === 'lafontaine' && targetPos && Math.abs(p.pos.x) < 33) {
-    const lf = PARK_LANDMARKS.lafontaine;
-    const sideA = p.pos.z;
-    const sideB = targetPos.z;
-    const crossesPondZ =
-      (sideA < -11.5 && sideB > 11.5) || (sideA > 11.5 && sideB < -11.5);
-    const onBridgeCorridor = Math.abs(p.pos.x) <= lf.bridgeHalfX - 0.3 && Math.abs(p.pos.z) <= lf.bridgeHalfZ;
-    if (crossesPondZ && !onBridgeCorridor) {
-      // Choisir le passage le plus court : pont central vertical (0,0) ou rives Ouest/Est (±35.5)
-      const crossings = [
-        { x: 0, z: 0 },
-        { x: -35.5, z: 0 },
-        { x: 35.5, z: 0 }
-      ];
-      let bestWp = crossings[0];
-      let bestLen = Infinity;
-      for (let ci = 0; ci < crossings.length; ci++) {
-        const wp = crossings[ci];
-        const totalLen =
-          Math.hypot(wp.x - p.pos.x, wp.z - p.pos.z) +
-          Math.hypot(targetPos.x - wp.x, targetPos.z - wp.z);
-        if (totalLen < bestLen) {
-          bestLen = totalLen;
-          bestWp = wp;
-        }
+  } else if (targetPos && state.mapId !== 'tutorial') {
+    if (hasGridLOS(p.pos.x, p.pos.z, targetPos.x, targetPos.z)) {
+      p._aiNavPath = null;
+    } else {
+      const nowMs = performance.now();
+      const navVer = getNavVersion();
+      const goalMoved =
+        !p._aiNavGoal ||
+        Math.hypot(targetPos.x - p._aiNavGoal.x, targetPos.z - p._aiNavGoal.z) > 4.0;
+      const needRecompute =
+        !Array.isArray(p._aiNavPath) ||
+        p._aiNavPath.length === 0 ||
+        (p._aiNavIndex || 0) >= p._aiNavPath.length ||
+        nowMs - (p._aiNavAt || 0) > 450 ||
+        navVer !== p._aiNavVer ||
+        goalMoved;
+      if (needRecompute) {
+        p._aiNavPath = computeMobaPath(p.pos.x, p.pos.z, targetPos.x, targetPos.z, {
+          maxExpansions: state.mapId === 'rift' ? 3500 : 2200
+        });
+        p._aiNavIndex = 0;
+        p._aiNavAt = nowMs;
+        p._aiNavVer = navVer;
+        p._aiNavGoal = { x: targetPos.x, z: targetPos.z };
       }
-      steerTarget = new THREE.Vector3(bestWp.x, 0, bestWp.z);
-    }
-  } else if (state.mapId === 'saint-viateur' && targetPos) {
-    const sv = PARK_LANDMARKS.saintViateur;
-    const onBridge = Math.abs(p.pos.x) >= sv.bridgeInnerX - 0.5 && Math.abs(p.pos.x) <= sv.bridgeOuterX + 0.5 && Math.abs(p.pos.z) <= sv.bridgeHalfZ;
-    const targetOnIsland = Math.hypot(targetPos.x / sv.islandRx, targetPos.z / sv.islandRz) < 1.0;
-    const selfOutsideMoat = Math.hypot(p.pos.x / sv.pondRx, p.pos.z / sv.pondRz) > 1.0;
-    const selfOnIsland = Math.hypot(p.pos.x / sv.islandRx, p.pos.z / sv.islandRz) < 1.0;
-    const targetOutsideMoat = Math.hypot(targetPos.x / sv.pondRx, targetPos.z / sv.pondRz) > 1.0;
-    const crossesWholePondX =
-      Math.abs(p.pos.z) < sv.pondRz &&
-      ((p.pos.x < -sv.islandRx && targetPos.x > sv.islandRx) ||
-        (p.pos.x > sv.islandRx && targetPos.x < -sv.islandRx));
 
-    if (!onBridge && ((targetOnIsland && selfOutsideMoat) || (selfOnIsland && targetOutsideMoat))) {
-      const bx = p.pos.x >= 0 ? (sv.bridgeInnerX + sv.bridgeOuterX) * 0.5 : -(sv.bridgeInnerX + sv.bridgeOuterX) * 0.5;
-      steerTarget = new THREE.Vector3(bx, 0, 0);
-    } else if (!onBridge && crossesWholePondX && !selfOnIsland) {
-      const edgeZ = p.pos.z >= 0 ? sv.pondRz + 2.8 : -(sv.pondRz + 2.8);
-      steerTarget = new THREE.Vector3(0, 0, edgeZ);
-    }
-  } else if (state.mapId === 'rift' && targetPos) {
-    const directDist = Math.hypot(targetPos.x - p.pos.x, targetPos.z - p.pos.z);
-    if (directDist > 16 && !hasClearLineOfSight(p.pos, targetPos, false)) {
-      let bestHub = null;
-      let bestScore = Infinity;
-      for (let i = 0; i < RIFT_NAV_HUBS.length; i++) {
-        const h = RIFT_NAV_HUBS[i];
-        const d1 = Math.hypot(h.x - p.pos.x, h.z - p.pos.z);
-        if (d1 < 3.5 || !hasClearLineOfSight(p.pos, h, false)) continue;
-        const d2 = Math.hypot(targetPos.x - h.x, targetPos.z - h.z);
-        const clearSecond = hasClearLineOfSight(h, targetPos, false);
-        const score = d1 + d2 * (clearSecond ? 1.0 : 1.28);
-        if (score < bestScore) {
-          bestScore = score;
-          bestHub = h;
+      if (Array.isArray(p._aiNavPath) && p._aiNavPath.length > 0) {
+        while (p._aiNavIndex < p._aiNavPath.length) {
+          const wp = p._aiNavPath[p._aiNavIndex];
+          if (Math.hypot(wp.x - p.pos.x, wp.z - p.pos.z) <= 1.15) {
+            p._aiNavIndex++;
+          } else {
+            break;
+          }
+        }
+        if (p._aiNavIndex < p._aiNavPath.length) {
+          const wp = p._aiNavPath[p._aiNavIndex];
+          steerTarget = new THREE.Vector3(wp.x, 0, wp.z);
+        }
+      } else if (state.mapId === 'lafontaine' && Math.abs(p.pos.x) < 33) {
+        const lf = PARK_LANDMARKS.lafontaine;
+        const sideA = p.pos.z;
+        const sideB = targetPos.z;
+        const crossesPondZ =
+          (sideA < -11.5 && sideB > 11.5) || (sideA > 11.5 && sideB < -11.5);
+        const onBridgeCorridor = Math.abs(p.pos.x) <= lf.bridgeHalfX - 0.3 && Math.abs(p.pos.z) <= lf.bridgeHalfZ;
+        if (crossesPondZ && !onBridgeCorridor) {
+          const crossings = [
+            { x: 0, z: 0 },
+            { x: -35.5, z: 0 },
+            { x: 35.5, z: 0 }
+          ];
+          let bestWp = crossings[0];
+          let bestLen = Infinity;
+          for (let ci = 0; ci < crossings.length; ci++) {
+            const wp = crossings[ci];
+            const totalLen =
+              Math.hypot(wp.x - p.pos.x, wp.z - p.pos.z) +
+              Math.hypot(targetPos.x - wp.x, targetPos.z - wp.z);
+            if (totalLen < bestLen) {
+              bestLen = totalLen;
+              bestWp = wp;
+            }
+          }
+          steerTarget = new THREE.Vector3(bestWp.x, 0, bestWp.z);
+        }
+      } else if (state.mapId === 'saint-viateur') {
+        const sv = PARK_LANDMARKS.saintViateur;
+        const onBridge = Math.abs(p.pos.x) >= sv.bridgeInnerX - 0.5 && Math.abs(p.pos.x) <= sv.bridgeOuterX + 0.5 && Math.abs(p.pos.z) <= sv.bridgeHalfZ;
+        const targetOnIsland = Math.hypot(targetPos.x / sv.islandRx, targetPos.z / sv.islandRz) < 1.0;
+        const selfOutsideMoat = Math.hypot(p.pos.x / sv.pondRx, p.pos.z / sv.pondRz) > 1.0;
+        const selfOnIsland = Math.hypot(p.pos.x / sv.islandRx, p.pos.z / sv.islandRz) < 1.0;
+        const targetOutsideMoat = Math.hypot(targetPos.x / sv.pondRx, targetPos.z / sv.pondRz) > 1.0;
+        const crossesWholePondX =
+          Math.abs(p.pos.z) < sv.pondRz &&
+          ((p.pos.x < -sv.islandRx && targetPos.x > sv.islandRx) ||
+            (p.pos.x > sv.islandRx && targetPos.x < -sv.islandRx));
+
+        if (!onBridge && ((targetOnIsland && selfOutsideMoat) || (selfOnIsland && targetOutsideMoat))) {
+          const bx = p.pos.x >= 0 ? (sv.bridgeInnerX + sv.bridgeOuterX) * 0.5 : -(sv.bridgeInnerX + sv.bridgeOuterX) * 0.5;
+          steerTarget = new THREE.Vector3(bx, 0, 0);
+        } else if (!onBridge && crossesWholePondX && !selfOnIsland) {
+          const edgeZ = p.pos.z >= 0 ? sv.pondRz + 2.8 : -(sv.pondRz + 2.8);
+          steerTarget = new THREE.Vector3(0, 0, edgeZ);
         }
       }
-      if (bestHub) steerTarget = new THREE.Vector3(bestHub.x, 0, bestHub.z);
     }
   }
 
@@ -512,6 +547,7 @@ export function updateAIPlayer(p, dt) {
       e.team !== p.team &&
       e.state === 'standing' &&
       COLORS[e.color].beats === p.color &&
+      !(e.color === 'red' && p.waterShieldTimer > 0) &&
       Math.abs(e.pos.y - p.pos.y) < 2.2 &&
       e.pos.distanceTo(p.pos) < 7.5
   );
@@ -562,6 +598,15 @@ export function updateAIPlayer(p, dt) {
         const wallSteer = steerAroundCircleObstacles(p.pos.x, p.pos.z, baseDirX, baseDirZ, wallCircles);
         steerX += wallSteer.sx;
         steerZ += wallSteer.sz;
+      }
+
+      const toolWalls = (ctx.entities.activeToolWalls || [])
+        .filter((tw) => tw && !tw.onCanopy)
+        .map((tw) => ({ ax: tw.ax, az: tw.az, bx: tw.bx, bz: tw.bz, radius: tw.thickness || 0.36 }));
+      if (toolWalls.length > 0) {
+        const toolSteer = steerAroundWallSegments(p.pos.x, p.pos.z, baseDirX, baseDirZ, toolWalls);
+        steerX += toolSteer.sx;
+        steerZ += toolSteer.sz;
       }
 
       if (CANOPY_SPEC.hasCanopy) {

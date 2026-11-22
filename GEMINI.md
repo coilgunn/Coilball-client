@@ -10,11 +10,12 @@
 3. Demander confirmation à l’utilisateur avant de **commit / push** : branche/PR (**preview** auto), `main` (**production** auto), ou autres changements.
 
 ## Sur demande de déploiement (Git ou `vercel.cmd`)
+- **Exécution directe hors sandbox** : exécuter directement avec `BypassSandbox: true` les commandes `git add` / `git commit` / `git push` et `vercel.cmd` (inutile de tenter dans la sandbox d'abord).
 1. **Via Git (par défaut)** :
    - **Preview** : `git push` sur une branche dédiée (déploiement Preview auto sur Vercel).
    - **Prod** (sur confirmation explicite) : `git push origin main` (déploiement Production auto sur Vercel).
    - *(Fallback CLI si demandé : `vercel.cmd deploy --yes` ou `vercel.cmd deploy --prod --yes`.)*
-2. Vérifier : statut `READY`, `vercel.cmd curl` → `/` en `HTTP 200` avec `Permissions-Policy: fullscreen=(*)`, et `/GEMINI.md` en `404`.
+2. **Vérification unique (la plus critique)** : un seul `vercel.cmd curl / -- -sI` (ou `--deployment https://coilball.vercel.app` en prod) pour confirmer `/` en `HTTP 200` avec `Permissions-Policy: fullscreen=(*)`.
 3. **Réponse finale après succès** : **1 seule ligne** confirmant la mise en ligne vérifiée + l’URL (sans détailler vérifs, IDs ni liens d’inspection, sauf erreur ou demande).
 
 ## Délégation des tâches banales / triviales

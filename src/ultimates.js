@@ -366,10 +366,10 @@ function computeFireLaserMaxDist(ox, oy, oz, dirX, dirZ, maxLen = FIRE_ULT_MAX_L
   }
 
   // 2. Obstacles statiques du parc
-  const onHighCanopy = oy >= 3.8;
+  const onHighCanopy = CANOPY_SPEC.hasCanopy && oy >= 3.8;
   for (let i = 0; i < JUNGLE_OBSTACLES.length; i++) {
     const obs = JUNGLE_OBSTACLES[i];
-    if (onHighCanopy && obs.kind !== 'gazebo') continue;
+    if (onHighCanopy && obs.kind !== 'gazebo' && obs.kind !== 'waterfall') continue;
     const t = rayToCircleDistance2D(ox, oz, dirX, dirZ, obs.x, obs.z, obs.radius + 0.15, bestT);
     if (t < bestT) bestT = t;
   }
@@ -889,7 +889,12 @@ function updateFireLasers(dt) {
     if (f.phase === 'telegraph') {
       f.timer -= dt;
       const c = f.caster;
-      if (c && c.state !== 'sitting' && !c.tutorialHidden) {
+      if (!c || c.state === 'sitting' || c.tutorialHidden) {
+        scene.remove(f.group);
+        activeFireLasers.splice(i, 1);
+        continue;
+      }
+      {
         const isLocalCaster = c.team === state.myTeam && c.role === state.controlledRole;
         if (isLocalCaster) {
           if (typeof f.lockedAimAngle === 'number' && Number.isFinite(f.lockedAimAngle)) {
@@ -1472,6 +1477,11 @@ function updateLeafWalls(dt) {
         players.forEach((p) => {
           if (p.tutorialHidden) return;
           pushOutFromLeafWalls(p.pos, 0.75, p.vel);
+          ctx.api.clampToField(p.pos, 0.72, null, {
+            onCanopy: !!p.onCanopy,
+            isAirborne: !!p.isAirborne,
+            airSource: p.airSource || null
+          });
         });
       }
       continue;
@@ -1506,14 +1516,16 @@ function updateLeafWalls(dt) {
   }
 }
 
-function hitsGrownLeafWall(x, z, extraRadius = 0.5) {
+function hitsGrownLeafWall(x, z, extraRadius = 0.5, yRef = null) {
   const r = LEAF_ULT_WALL_RADIUS + extraRadius;
   const rSq = r * r;
   for (let w = 0; w < activeLeafWalls.length; w++) {
     const wall = activeLeafWalls[w];
     if (wall.phase !== 'grown') continue;
+    const maxH = wall.evolved ? 7.5 : 3.85;
     for (let i = 0; i < wall.nodes.length; i++) {
       const nd = wall.nodes[i];
+      if (yRef !== null && Math.abs(yRef - (nd.y || 0)) > maxH) continue;
       const dx = x - nd.x;
       const dz = z - nd.z;
       if (dx * dx + dz * dz <= rSq) return true;
@@ -1521,6 +1533,7 @@ function hitsGrownLeafWall(x, z, extraRadius = 0.5) {
     for (let i = 0; i < wall.nodes.length - 1; i++) {
       const a = wall.nodes[i];
       const b = wall.nodes[i + 1];
+      if (yRef !== null && Math.abs(yRef - (a.y || 0)) > maxH) continue;
       if (distSqPointToSegment2D(x, z, a.x, a.z, b.x, b.z) <= rSq) return true;
     }
   }
@@ -1530,13 +1543,16 @@ function hitsGrownLeafWall(x, z, extraRadius = 0.5) {
 export function pushOutFromLeafWalls(pos, entityRadius = 0.72, bounceVel = null) {
   const minDist = LEAF_ULT_WALL_RADIUS + entityRadius;
   const minDistSq = minDist * minDist;
+  const posY = typeof pos.y === 'number' ? pos.y : 0;
 
   for (let w = 0; w < activeLeafWalls.length; w++) {
     const wall = activeLeafWalls[w];
     if (wall.phase !== 'grown') continue;
+    const maxH = wall.evolved ? 7.5 : 3.85;
 
     for (let i = 0; i < wall.nodes.length; i++) {
       const a = wall.nodes[i];
+      if (Math.abs(posY - (a.y || 0)) > maxH) continue;
       const b = i < wall.nodes.length - 1 ? wall.nodes[i + 1] : a;
       const vx = b.x - a.x;
       const vz = b.z - a.z;
@@ -1708,6 +1724,7 @@ function spawnWaterWaveUltimate(caster, aimAngle, evolvedOverride = null, preser
     casterId: caster.id,
     casterRole: caster.role,
     team: caster.team,
+    onCanopy: !!caster.onCanopy,
     evolved,
     is360,
     dirX,
@@ -1846,8 +1863,10 @@ function deflectWaveSegmentAroundMapObstacles(seg, dirX, dirZ) {
       const d = Math.sqrt(dSq) || 0.001;
       const nx = dx / d;
       const nz = dz / d;
-      const tx = -nz;
-      const tz = nx;
+      const dot1 = -nz * dirX + nx * dirZ;
+      const dot2 = nz * dirX - nx * dirZ;
+      const tx = dot2 > dot1 ? nz : -nz;
+      const tz = dot2 > dot1 ? -nx : nx;
       seg.x = cx + nx * minR + tx * 0.35;
       seg.z = cz + nz * minR + tz * 0.35;
     }
@@ -1951,7 +1970,7 @@ function updateWaterWaves(dt) {
         seg.z += sdz * stepDist;
 
         // 1. Le mur de bois (Ultimate Feuille) ANNULE la partie de la vague touchée !
-        if (hitsGrownLeafWall(seg.x, seg.z, 0.72)) {
+        if (hitsGrownLeafWall(seg.x, seg.z, 0.72, seg.y)) {
           seg.active = false;
           seg.mesh.visible = false;
           spawnParticles(new THREE.Vector3(seg.x, seg.y + 0.9, seg.z), 0x38bdf8, 10);
@@ -1969,7 +1988,7 @@ function updateWaterWaves(dt) {
         // 3. Contournement fluide des obstacles normaux de la carte
         deflectWaveSegmentAroundMapObstacles(seg, sdx, sdz);
 
-        seg.y = getTerrainY(seg.x, seg.z);
+        seg.y = getStructureSurfaceY(seg.x, seg.z, !!wave.onCanopy).y;
         const swellBob = Math.sin(wave.traveled * 0.55 + seg.index * 0.45) * 0.07;
         seg.mesh.position.set(seg.x, seg.y + swellBob, seg.z);
         seg.mesh.rotation.x = 0.05 * Math.sin(wave.traveled * 0.6 + seg.index * 0.4);
@@ -2002,8 +2021,12 @@ function updateWaterWaves(dt) {
             other.pos.z += sdz * WATER_ULT_PUSH_SPEED * pushMult * dt;
             ctx.api.clampToField(other.pos, 0.72, other.vel, {
               onCanopy: !!other.onCanopy,
-              isAirborne: !!other.isAirborne
+              isAirborne: !!other.isAirborne,
+              airSource: other.airSource || null
             });
+            if (!other.isAirborne) {
+              other.pos.y = getStructureSurfaceY(other.pos.x, other.pos.z, !!other.onCanopy).y;
+            }
             other.targetPos.copy(other.pos);
             if (mp.enabled && mp.isHost) other.netForceSeq = ((other.netForceSeq || 0) + 1) & 0xffff;
             if (Math.random() < 0.35) {
@@ -2938,6 +2961,7 @@ export function serializeLateUltimates() {
     })),
     waterWaves: activeWaterWaves.map((w) => ({
       casterId: w.casterId,
+      onCanopy: !!w.onCanopy,
       evolved: !!w.evolved,
       aimAngle: w.aimAngle,
       traveled: w.traveled,
@@ -3028,6 +3052,7 @@ export function applyLateUltimates(data) {
     spawnWaterWaveUltimate(caster, sw.aimAngle, !!sw.evolved, true);
     const wave = activeWaterWaves[activeWaterWaves.length - 1];
     if (!wave) return;
+    if (typeof sw.onCanopy === 'boolean') wave.onCanopy = sw.onCanopy;
     wave.traveled = sw.traveled;
     wave.maxRange = sw.maxRange;
     wave.finishedWave = !!sw.finishedWave;

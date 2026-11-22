@@ -112,8 +112,6 @@ function isStaticPointWalkable(x, z, rNav = NAV_ENTITY_RADIUS) {
   // 2. Obstacles circulaires (piliers, bosquets, gazebo, chute d'eau)
   for (let i = 0; i < JUNGLE_OBSTACLES.length; i++) {
     const obs = JUNGLE_OBSTACLES[i];
-    const obsMaxY = obs.kind === 'gazebo' ? 999 : obs.kind === 'waterfall' ? 25.0 : 3.8;
-    if (yRef >= obsMaxY) continue;
     const minDist = obs.radius + rNav;
     const dx = x - obs.x;
     const dz = z - obs.z;
@@ -244,7 +242,7 @@ function isDynamicPointBlocked(x, z, rNav = NAV_ENTITY_RADIUS) {
   if (toolWalls && toolWalls.length > 0) {
     for (let i = 0; i < toolWalls.length; i++) {
       const tw = toolWalls[i];
-      if (!tw || Math.abs(tw.cy || 0) > 2.3) continue;
+      if (!tw || tw.onCanopy) continue;
       const minDist = (tw.thickness || 0.36) + rNav;
       if (distSqPointToSegment2D(x, z, tw.ax, tw.az, tw.bx, tw.bz) < minDist * minDist) {
         return true;
@@ -259,6 +257,7 @@ function isDynamicPointBlocked(x, z, rNav = NAV_ENTITY_RADIUS) {
     for (let w = 0; w < leafWalls.length; w++) {
       const wall = leafWalls[w];
       if (!wall || wall.phase !== 'grown' || !wall.nodes || wall.nodes.length === 0) continue;
+      if (CANOPY_SPEC && CANOPY_SPEC.hasCanopy && (wall.nodes[0].y || 0) >= 3.8) continue;
       for (let i = 0; i < wall.nodes.length; i++) {
         const a = wall.nodes[i];
         const b = i < wall.nodes.length - 1 ? wall.nodes[i + 1] : a;
@@ -471,7 +470,7 @@ function syncDynamicObstaclesIfDirty() {
   if (toolWalls && toolWalls.length > 0) {
     for (let i = 0; i < toolWalls.length; i++) {
       const tw = toolWalls[i];
-      if (!tw || Math.abs(tw.cy || 0) > 2.3) continue;
+      if (!tw || tw.onCanopy) continue;
       stampCapsuleDynamic(tw.ax, tw.az, tw.bx, tw.bz, (tw.thickness || 0.36) + NAV_ENTITY_RADIUS);
     }
   }
@@ -482,6 +481,7 @@ function syncDynamicObstaclesIfDirty() {
     for (let w = 0; w < leafWalls.length; w++) {
       const wall = leafWalls[w];
       if (!wall || wall.phase !== 'grown' || !wall.nodes || wall.nodes.length === 0) continue;
+      if (CANOPY_SPEC && CANOPY_SPEC.hasCanopy && (wall.nodes[0].y || 0) >= 3.8) continue;
       for (let i = 0; i < wall.nodes.length; i++) {
         const a = wall.nodes[i];
         const b = i < wall.nodes.length - 1 ? wall.nodes[i + 1] : a;
@@ -803,9 +803,14 @@ export function computeMobaPath(startX, startZ, goalX, goalZ, options = {}) {
     searchStamp = 1;
   }
 
+  const isRift = state.mapId === 'rift';
   const maxExpansions =
     typeof options.maxExpansions === 'number'
       ? options.maxExpansions
+      : isRift
+      ? state.lowSpecMode
+        ? 4500
+        : 9000
       : state.lowSpecMode
       ? 2500
       : 4500;
