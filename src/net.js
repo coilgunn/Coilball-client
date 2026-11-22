@@ -1467,6 +1467,7 @@ export function sendSyncStateToLateJoiner(targetConn = null, targetPeerId = null
     targetPeerId,
     gameMode: state.mode,
     vanillaMode: !!state.vanillaMode,
+    aiDifficulty: state.aiDifficulty || 'normal',
     mapId: state.mapId,
     round: state.round,
     allyPV: state.allyPV,
@@ -1485,6 +1486,7 @@ export function sendSyncStateToLateJoiner(targetConn = null, targetPeerId = null
         targetPeerId,
         gameMode: state.mode,
         vanillaMode: !!state.vanillaMode,
+        aiDifficulty: state.aiDifficulty || 'normal',
         mapId: state.mapId,
         round: state.round,
         teams: cloneTeamsMeta(state.teams),
@@ -1708,6 +1710,9 @@ export function onNetworkMessage(msg, sourceConn) {
       if (typeof msg.lobbyVanilla === 'boolean') {
         ctx.api.setMpLobbyVanilla?.(!!msg.lobbyVanilla, false);
       }
+      if (msg.lobbyAiDifficulty === 'hard' || msg.lobbyAiDifficulty === 'normal') {
+        ctx.api.setMpLobbyAiDifficulty?.(msg.lobbyAiDifficulty, false);
+      }
       if (msg.mapId && MONTREAL_MAPS[msg.mapId] && msg.mapId !== state.mapId) {
         ctx.api.selectArenaMap(msg.mapId, false, { force: true, fromNetwork: true });
       }
@@ -1755,6 +1760,9 @@ export function onNetworkMessage(msg, sourceConn) {
       const targetMode = msg.gameMode === 'practice' ? 'practice' : 'multiplayer';
       state.mode = targetMode;
       state.vanillaMode = !!msg.vanillaMode;
+      if (msg.aiDifficulty === 'hard' || msg.aiDifficulty === 'normal') {
+        ctx.api.setAIDifficulty?.(msg.aiDifficulty, { silent: true, skipSave: true, broadcast: false, fromNetwork: true });
+      }
       if (msg.mapId && MONTREAL_MAPS[msg.mapId] && msg.mapId !== state.mapId) {
         ctx.api.selectArenaMap(msg.mapId, false, { force: true, fromNetwork: true });
       }
@@ -1831,6 +1839,9 @@ export function onNetworkMessage(msg, sourceConn) {
       }
       if (typeof msg.vanillaMode === 'boolean') {
         state.vanillaMode = !!msg.vanillaMode;
+      }
+      if (msg.aiDifficulty === 'hard' || msg.aiDifficulty === 'normal') {
+        ctx.api.setAIDifficulty?.(msg.aiDifficulty, { silent: true, skipSave: true, broadcast: false, fromNetwork: true });
       }
       if (msg.mapId && MONTREAL_MAPS[msg.mapId] && msg.mapId !== state.mapId) {
         ctx.api.selectArenaMap(msg.mapId, false, { force: true, fromNetwork: true });
@@ -2140,6 +2151,7 @@ export function broadcastLobbyState() {
     type: 'MP_LOBBY_STATE',
     lobbyMode: mp.lobbyMode || 'multiplayer',
     lobbyVanilla: !!mp.lobbyVanilla,
+    lobbyAiDifficulty: mp.lobbyAiDifficulty || state.aiDifficulty || 'normal',
     mapId: state.mapId,
     members: mp.members
   });
@@ -2230,6 +2242,28 @@ export function updateLobbyUI(statusText) {
       ? '🍦 Vanille : sans Ult, Dash+, Évos Dash ni Outils • 🎯 Passe au magasin'
       : '⚡ Standard : Ultimates (R2), Évos Dash, Dash+ & Outils actifs';
   }
+  const lobbyAiDiff = (mp.lobbyAiDifficulty || state.aiDifficulty) === 'hard' ? 'hard' : 'normal';
+  const isHardAiLobby = lobbyAiDiff === 'hard';
+  const mpAiBar = document.getElementById('mp-ai-diff-bar');
+  if (mpAiBar) {
+    mpAiBar.classList.toggle('hidden', isPracticeLobby);
+  }
+  const btnMpAiNorm = document.getElementById('btn-mp-ai-normal');
+  const btnMpAiHard = document.getElementById('btn-mp-ai-hard');
+  if (btnMpAiNorm) {
+    btnMpAiNorm.classList.toggle('active', !isHardAiLobby);
+    btnMpAiNorm.disabled = mp.enabled && !mp.isHost;
+  }
+  if (btnMpAiHard) {
+    btnMpAiHard.classList.toggle('active', isHardAiLobby);
+    btnMpAiHard.disabled = mp.enabled && !mp.isHost;
+  }
+  const mpAiHint = document.getElementById('mp-ai-diff-hint');
+  if (mpAiHint) {
+    mpAiHint.textContent = isHardAiLobby
+      ? '🧠 Difficile : tenailles, dashs avancés, combos d’ultimates et achats optimisés'
+      : '🤖 Normale : IA équilibrée pour les postes libres';
+  }
   const modeHintEl = document.getElementById('mp-mode-hint');
   if (modeHintEl) {
     modeHintEl.textContent = isPracticeLobby
@@ -2271,7 +2305,7 @@ export function updateLobbyUI(statusText) {
         occupants.length > 0
           ? occupants.map((o) => `👤 ${escapeHtml(o.name)}`).join(', ')
           : check.ok
-          ? (mp.lobbyMode === 'practice' ? '🧘 Libre (Aucune IA)' : '🤖 IA (Libre)')
+          ? (mp.lobbyMode === 'practice' ? '🧘 Libre (Aucune IA)' : (isHardAiLobby ? '🧠 IA Difficile (Libre)' : '🤖 IA Normale (Libre)'))
           : `🔒 ${escapeHtml(check.reason)}`;
 
       row.innerHTML = `

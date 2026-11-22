@@ -56,9 +56,11 @@ import {
   getViewportSize,
   openOptionsModal,
   openArenaModal,
+  setAIDifficulty,
+  setMpLobbyAiDifficulty,
   initUI
 } from './src/ui.js';
-import { initAI } from './src/ai.js';
+import { initAI, resetAITacticalMemory } from './src/ai.js';
 import { initAudio, playSfx, syncMusicState } from './src/audio.js';
 import {
   resetMatchStateToMenu,
@@ -116,6 +118,10 @@ import {
   handleRemoteBallPass,
   triggerJump,
   handleRemotePlayerJump,
+  getPlayerDashParams,
+  executePlayerDash,
+  triggerBoomerangReturn,
+  executeBallPassOrThrow,
   initPhysics
 } from './src/physics.js';
 
@@ -134,6 +140,13 @@ initModes();
 Object.assign(ctx.api, {
   playSfx,
   syncMusicState,
+  getPlayerDashParams,
+  executePlayerDash,
+  triggerBoomerangReturn,
+  executeBallPassOrThrow,
+  setAIDifficulty,
+  setMpLobbyAiDifficulty,
+  resetAITacticalMemory,
   isMenuOpen,
   showToast,
   broadcastToast,

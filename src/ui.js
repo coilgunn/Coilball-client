@@ -4,6 +4,7 @@
 
 import {
   COLORS,
+  AI_DIFFICULTIES,
   TUTORIAL_TOTAL_STEPS,
   TUTORIAL_STEPS,
   FIELD,
@@ -2403,6 +2404,59 @@ export function showOnlyModal(modalId) {
   }
 }
 
+
+const AI_DIFF_STORAGE_KEY = 'coilball_ai_difficulty';
+
+export function setAIDifficulty(diff, opts = {}) {
+  const next = diff === 'hard' ? 'hard' : 'normal';
+  state.aiDifficulty = next;
+  if (!mp.enabled || mp.isHost || opts.syncLobby) {
+    mp.lobbyAiDifficulty = next;
+  }
+  if (!opts.skipSave) {
+    try {
+      localStorage.setItem(AI_DIFF_STORAGE_KEY, next);
+    } catch (_) {}
+  }
+  syncAIDifficultyUI();
+  if (mp.enabled && mp.isHost && !opts.fromNetwork && opts.broadcast !== false && state.phase === 'menu') {
+    broadcastLobbyState();
+  }
+  if (state.phase !== 'menu') {
+    updateWelcomePauseBanner(getVisibleModalId() === 'pause-modal');
+  }
+  if (!opts.silent) {
+    const meta = AI_DIFFICULTIES[next];
+    showToast(`${meta.icon} <strong>Difficulté IA : ${meta.label}</strong> — ${meta.desc}`, 2400);
+  }
+}
+
+export function syncAIDifficultyUI() {
+  const diff = state.aiDifficulty === 'hard' ? 'hard' : 'normal';
+  const meta = AI_DIFFICULTIES[diff];
+
+  const btnNorm = document.getElementById('btn-arena-ai-normal');
+  const btnHard = document.getElementById('btn-arena-ai-hard');
+  if (btnNorm) btnNorm.classList.toggle('active', diff === 'normal');
+  if (btnHard) btnHard.classList.toggle('active', diff === 'hard');
+
+  const arenaRow = document.getElementById('arena-ai-diff-row');
+  if (arenaRow) {
+    arenaRow.classList.toggle('hidden', pendingArenaMode === 'practice');
+  }
+  const arenaHint = document.getElementById('arena-ai-diff-hint');
+  if (arenaHint) {
+    arenaHint.textContent = meta.desc;
+  }
+
+  const optBtn = document.getElementById('btn-toggle-ai-difficulty');
+  if (optBtn) {
+    optBtn.textContent = `${meta.icon} Difficulté IA : ${meta.label}`;
+    optBtn.classList.toggle('active-mode-pill', diff === 'hard');
+    optBtn.disabled = !!(mp.enabled && !mp.isHost);
+  }
+}
+
 export function openOptionsModal(returnTarget = null) {
   optionsReturnModal = returnTarget;
   clearInputKeys();
@@ -2410,6 +2464,7 @@ export function openOptionsModal(returnTarget = null) {
   ctx.api.syncAudioControlsUI?.();
   renderControlsCustomizer();
   updateDeviceToggleButtonsUI();
+  syncAIDifficultyUI();
   showOnlyModal('options-modal');
   updateTopHUD();
 }
@@ -2473,6 +2528,7 @@ export function openArenaModal(mode = 'pedagogical', vanilla = false) {
   const summaryEl = document.getElementById('arena-map-summary');
 
   syncArenaRulesetUI();
+  syncAIDifficultyUI();
   if (summaryEl && meta) {
     summaryEl.textContent = `${meta.icon} ${meta.name}`;
   }
@@ -2501,6 +2557,8 @@ export function updateWelcomePauseBanner(isPausedFlag = state.phase !== 'menu') 
     const meta = getActiveMapMeta();
     const mapLabel = meta ? `${meta.icon} ${meta.shortName}` : '';
     const vanillaTag = state.vanillaMode ? ' • 🍦 Vanille' : '';
+    const aiMeta = AI_DIFFICULTIES[state.aiDifficulty === 'hard' ? 'hard' : 'normal'];
+    const aiTag = ` • ${aiMeta.icon} ${aiMeta.shortLabel}`;
     const modeLabel =
       state.mode === 'tutorial'
         ? 'Mode Tutoriel'
@@ -2509,8 +2567,8 @@ export function updateWelcomePauseBanner(isPausedFlag = state.phase !== 'menu') 
           ? `Pratique Multijoueur${vanillaTag} • Salon ${mp.roomCode}`
           : `Mode Pratique (Solo)${vanillaTag}`
         : mp.enabled
-        ? `Match Multijoueur${vanillaTag} • Salon ${mp.roomCode}`
-        : `Match Solo vs IA${vanillaTag}`;
+        ? `Match Multijoueur${vanillaTag}${aiTag} • Salon ${mp.roomCode}`
+        : `Match Solo vs IA${vanillaTag}${aiTag}`;
     modeInfoEl.textContent = mapLabel ? `${modeLabel} • ${mapLabel}` : modeLabel;
   }
   if (pauseUltsBtn) {
@@ -2933,6 +2991,21 @@ export function setMpLobbyMode(mode, broadcast = true) {
 export function setMpLobbyVanilla(enabled, broadcast = true) {
   mp.lobbyVanilla = !!enabled;
   if (broadcast && mp.enabled && mp.isHost) {
+    broadcastLobbyState();
+  } else if (typeof updateLobbyUI === 'function') {
+    updateLobbyUI();
+  }
+}
+
+export function setMpLobbyAiDifficulty(diff, broadcast = true) {
+  const next = diff === 'hard' ? 'hard' : 'normal';
+  mp.lobbyAiDifficulty = next;
+  state.aiDifficulty = next;
+  syncAIDifficultyUI();
+  if (broadcast && mp.enabled && mp.isHost) {
+    try {
+      localStorage.setItem(AI_DIFF_STORAGE_KEY, next);
+    } catch (_) {}
     broadcastLobbyState();
   } else if (typeof updateLobbyUI === 'function') {
     updateLobbyUI();
@@ -5025,12 +5098,30 @@ function bindUIButtons() {
     };
   }
 
+  const btnArenaAiNormal = document.getElementById('btn-arena-ai-normal');
+  if (btnArenaAiNormal) {
+    btnArenaAiNormal.onclick = () => setAIDifficulty('normal');
+  }
+  const btnArenaAiHard = document.getElementById('btn-arena-ai-hard');
+  if (btnArenaAiHard) {
+    btnArenaAiHard.onclick = () => setAIDifficulty('hard');
+  }
+  const btnOptAiDiff = document.getElementById('btn-toggle-ai-difficulty');
+  if (btnOptAiDiff) {
+    btnOptAiDiff.onclick = () => {
+      btnOptAiDiff.blur();
+      if (mp.enabled && !mp.isHost) return;
+      setAIDifficulty(state.aiDifficulty === 'hard' ? 'normal' : 'hard');
+    };
+  }
+
   const btnArenaLaunch = document.getElementById('btn-arena-launch');
   attachLockFocusPrep(btnArenaLaunch);
   if (btnArenaLaunch) {
     btnArenaLaunch.onclick = () => {
       ctx.api.startNewMatch(pendingArenaMode || 'pedagogical', {
-        vanillaMode: !!pendingArenaVanilla
+        vanillaMode: !!pendingArenaVanilla,
+        aiDifficulty: state.aiDifficulty
       });
     };
   }
@@ -5118,6 +5209,22 @@ function bindUIButtons() {
     btnMpRuleVanilla.onclick = () => {
       if (mp.enabled && !mp.isHost) return;
       setMpLobbyVanilla(true, true);
+    };
+  }
+
+  const btnMpAiNormal = document.getElementById('btn-mp-ai-normal');
+  if (btnMpAiNormal) {
+    btnMpAiNormal.onclick = () => {
+      if (mp.enabled && !mp.isHost) return;
+      setMpLobbyAiDifficulty('normal', true);
+    };
+  }
+
+  const btnMpAiHard = document.getElementById('btn-mp-ai-hard');
+  if (btnMpAiHard) {
+    btnMpAiHard.onclick = () => {
+      if (mp.enabled && !mp.isHost) return;
+      setMpLobbyAiDifficulty('hard', true);
     };
   }
 
@@ -5327,7 +5434,11 @@ function bindUIButtons() {
       if (mp.lobbyMode === 'practice') {
         ctx.api.startNewMatch('practice', { keepMp: true, vanillaMode: !!mp.lobbyVanilla });
       } else {
-        ctx.api.startNewMatch('multiplayer', { keepMp: true, vanillaMode: !!mp.lobbyVanilla });
+        ctx.api.startNewMatch('multiplayer', {
+          keepMp: true,
+          vanillaMode: !!mp.lobbyVanilla,
+          aiDifficulty: mp.lobbyAiDifficulty || state.aiDifficulty || 'normal'
+        });
       }
     }
   };
@@ -6831,6 +6942,7 @@ export function initUI() {
   ctx.api.isMobileAimCancelled = isMobileAimCancelled;
   ctx.api.computeMobileAutoAimAngle = computeMobileAutoAimAngle;
   ctx.api.setMpLobbyVanilla = setMpLobbyVanilla;
+  ctx.api.setMpLobbyAiDifficulty = setMpLobbyAiDifficulty;
   ctx.api.toggleMobaCamLock = toggleMobaCamLock;
   ctx.api.updateControlsHelpForCameraMode = updateControlsHelpForCameraMode;
   minimapCanvas = document.getElementById('minimap-canvas');
@@ -6841,4 +6953,13 @@ export function initUI() {
   loadControlsConfig();
   registerUIGlobalListeners();
   bindUIButtons();
+  try {
+    const savedDiff = localStorage.getItem(AI_DIFF_STORAGE_KEY);
+    if (savedDiff === 'hard' || savedDiff === 'normal') {
+      state.aiDifficulty = savedDiff;
+      mp.lobbyAiDifficulty = savedDiff;
+    }
+  } catch (_) {}
+  syncAIDifficultyUI();
+  ctx.api.setAIDifficulty = setAIDifficulty;
 }

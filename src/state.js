@@ -37,6 +37,23 @@ export const COLORS = {
 };
 export const COLOR_KEYS = ['green', 'red', 'blue'];
 
+export const AI_DIFFICULTIES = {
+  normal: {
+    id: 'normal',
+    icon: '🤖',
+    label: 'Normale',
+    shortLabel: 'IA Normale',
+    desc: 'IA équilibrée : dashs et ultimates mesurés, coordination simple.'
+  },
+  hard: {
+    id: 'hard',
+    icon: '🧠',
+    label: 'Difficile',
+    shortLabel: 'IA Difficile',
+    desc: 'IA stratège : encerclements en tenaille, dashs avancés, combos d’ultimates et achats optimisés.'
+  }
+};
+
 export const TUTORIAL_TOTAL_STEPS = 8;
 export const TUTORIAL_STEPS = {
   MOVEMENT: 1,
@@ -577,6 +594,7 @@ export const state = {
   lowSpecMode: false,
   mobileMode: false,
   vanillaMode: false,
+  aiDifficulty: 'normal', // 'normal' | 'hard'
 
   prepTimer: 30,
   prepInterval: null
@@ -588,6 +606,7 @@ export const mp = {
   isHost: false,
   lobbyMode: 'multiplayer', // 'multiplayer' | 'practice'
   lobbyVanilla: false,
+  lobbyAiDifficulty: 'normal', // 'normal' | 'hard'
   roomCode: '',
   myPeerId: 'p_' + Math.random().toString(36).slice(2, 9),
   myName: 'Joueuse 1',

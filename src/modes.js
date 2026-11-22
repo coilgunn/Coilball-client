@@ -505,6 +505,7 @@ export function applyRoundSetupPositions() {
   clearAllUltimates();
   ctx.api.clearAllDeployedTools();
   ctx.api.clearAllSlidePatches();
+  ctx.api.resetAITacticalMemory?.();
   syncTutorialEntityVisibility();
   updateTeamVisionState(true);
   recenterMobaCamera(true);
@@ -575,25 +576,28 @@ export function setupRoundPrep() {
     }
     state.drawnBalls = [bag[0], bag[1]];
 
-    // Si l'équipe Violette n'a aucun joueur humain, lui tirer des couleurs aléatoires + achats tactiques IA (Ronde 3+)
+    const canAIShop =
+      (state.mode === 'pedagogical' || state.mode === 'multiplayer') && isShopAvailable();
+
+    // Si l'équipe Violette n'a aucun joueur humain : couleurs adaptées à la difficulté + achats IA (Ronde 3+)
     const enemyHasHuman =
       mp.enabled && mp.members.some((m) => m.team === 'enemy');
     if (!enemyHasHuman) {
-      const eBag = ['green', 'red', 'blue'];
-      for (let i = eBag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [eBag[i], eBag[j]] = [eBag[j], eBag[i]];
+      if (canAIShop) {
+        runTeamAIShopPurchases('enemy');
       }
-      state.teams.enemy.prepColors = { G: eBag[0], C: eBag[1], D: eBag[2] };
+      state.teams.enemy.prepColors = chooseAIPrepColors('enemy');
       state.teams.enemy.prepReady = true;
-      if (state.mode === 'pedagogical' && isShopAvailable()) {
-        runEnemyAIShopPurchases();
-      }
     }
 
+    // Si l'équipe Or n'a aucun joueur humain (ex. tous les humains en Violette en multijoueur)
     const allyHasHuman =
       !mp.enabled || mp.members.some((m) => m.team === 'ally');
     if (!allyHasHuman) {
+      if (canAIShop) {
+        runTeamAIShopPurchases('ally');
+      }
+      state.teams.ally.prepColors = chooseAIPrepColors('ally');
       state.teams.ally.prepReady = true;
     }
   }
@@ -607,6 +611,7 @@ export function setupRoundPrep() {
       type: 'MP_START_MATCH',
       gameMode: state.mode,
       vanillaMode: !!state.vanillaMode,
+      aiDifficulty: state.aiDifficulty || 'normal',
       mapId: state.mapId,
       round: state.round,
       allyPV: state.allyPV,
@@ -819,53 +824,153 @@ function isPowerItemAllowedInCurrentMode(def) {
   return !def.vanillaOnly;
 }
 
-function runEnemyAIShopPurchases() {
-  const meta = state.teams.enemy;
-  if (!meta || !meta.powers) return;
-  const candidates = state.vanillaMode
-    ? [
-        { key: 'throwBall', roles: ['C', 'G', 'D'] },
-        { key: 'standUp', roles: ['G', 'C', 'D'] },
-        { teamItem: 'teamJump', cost: 3 }
-      ]
-    : [
-        { key: 'ultEvo', roles: ['G', 'C', 'D'] },
-        { key: 'dash_bounce', roles: ['G', 'D', 'C'] },
-        { key: 'dash_slide', roles: ['C', 'G', 'D'] },
-        { key: 'dash_boomerang', roles: ['D', 'C', 'G'] },
-        { key: 'tool_beacon', roles: ['C', 'G'] },
-        { key: 'tool_wall', roles: ['C', 'D'] },
-        { key: 'tool_pad', roles: ['G', 'D'] },
-        { key: 'standUp', roles: ['G', 'C', 'D'] },
-        { teamItem: 'teamDashPlus', cost: 2 },
-        { teamItem: 'teamJump', cost: 3 }
-      ];
-  // Mélange léger pour que l'IA varie ses achats d'une partie à l'autre
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+function chooseAIPrepColors(teamKey) {
+  const meta = state.teams[teamKey];
+  const stock = (meta && meta.dossardStock) || { green: 1, red: 1, blue: 1 };
+  const isHard = state.aiDifficulty === 'hard';
+
+  const makeRandomPick = () => {
+    const bag = ['green', 'red', 'blue'];
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    return { G: bag[0], C: bag[1], D: bag[2] };
+  };
+
+  if (!isHard || !Array.isArray(state.drawnBalls) || state.drawnBalls.length < 2) {
+    return makeRandomPick();
   }
+
+  const topRole = teamKey === 'ally' ? 'G' : 'D';
+  const botRole = teamKey === 'ally' ? 'D' : 'G';
+  const topBall = state.drawnBalls[0];
+  const botBall = state.drawnBalls[1];
+  const remaining = { ...stock };
+  const out = {};
+
+  const takeColor = (preferred) => {
+    if (preferred && (remaining[preferred] || 0) > 0) {
+      remaining[preferred] -= 1;
+      return preferred;
+    }
+    const fallback = COLOR_KEYS.find((c) => (remaining[c] || 0) > 0) || 'green';
+    remaining[fallback] = Math.max(0, (remaining[fallback] || 0) - 1);
+    return fallback;
+  };
+
+  const ambushTop = Math.random() < 0.18;
+  const ambushBot = !ambushTop && Math.random() < 0.15;
+
+  const wantTop = ambushTop ? COLORS[topBall].losesTo : topBall;
+  const wantBot = ambushBot ? COLORS[botBall].losesTo : botBall;
+
+  out[topRole] = takeColor(wantTop);
+  out[botRole] = takeColor(wantBot);
+
+  const missingBallColor = [topBall, botBall].find((c) => c !== out[topRole] && c !== out[botRole]);
+  const thirdColor = COLOR_KEYS.find((c) => c !== out[topRole] && c !== out[botRole]);
+  out.C = takeColor(missingBallColor || thirdColor);
+  return out;
+}
+
+function runTeamAIShopPurchases(teamKey = 'enemy') {
+  const meta = state.teams[teamKey];
+  if (!meta || !meta.powers) return;
+
+  const isHard = state.aiDifficulty === 'hard';
+  const getPE = () => getTeamPE(teamKey);
+  const spendPE = (amount) => setTeamPE(teamKey, Math.max(0, getTeamPE(teamKey) - amount));
+
+  let candidates;
+  let maxPurchases;
+  if (state.vanillaMode) {
+    candidates = isHard
+      ? [
+          { key: 'throwBall', roles: ['C', 'G', 'D'] },
+          { teamItem: 'teamJump', cost: 3 },
+          { key: 'standUp', roles: ['C', 'G', 'D'] },
+          { extraDossard: true, cost: 1 }
+        ]
+      : [
+          { key: 'throwBall', roles: ['C', 'G', 'D'] },
+          { key: 'standUp', roles: ['G', 'C', 'D'] },
+          { teamItem: 'teamJump', cost: 3 }
+        ];
+    maxPurchases = isHard ? 5 : 2;
+  } else if (isHard) {
+    candidates = [
+      { teamItem: 'teamDashPlus', cost: 2 },
+      { key: 'ultEvo', roles: ['C', 'G', 'D'] },
+      { key: 'dash_slide', roles: ['C', 'G'] },
+      { key: 'dash_bounce', roles: ['G', 'D'] },
+      { key: 'dash_boomerang', roles: ['D', 'C', 'G'] },
+      { key: 'tool_wall', roles: ['C', 'D'] },
+      { teamItem: 'teamJump', cost: 3 },
+      { key: 'tool_beacon', roles: ['G', 'C'] },
+      { key: 'tool_pad', roles: ['D', 'G'] },
+      { key: 'standUp', roles: ['C', 'G', 'D'] },
+      { extraDossard: true, cost: 1 }
+    ];
+    maxPurchases = 6;
+  } else {
+    candidates = [
+      { key: 'ultEvo', roles: ['G', 'C', 'D'] },
+      { key: 'dash_bounce', roles: ['G', 'D', 'C'] },
+      { key: 'dash_slide', roles: ['C', 'G', 'D'] },
+      { key: 'dash_boomerang', roles: ['D', 'C', 'G'] },
+      { key: 'tool_beacon', roles: ['C', 'G'] },
+      { key: 'tool_wall', roles: ['C', 'D'] },
+      { key: 'tool_pad', roles: ['G', 'D'] },
+      { key: 'standUp', roles: ['G', 'C', 'D'] },
+      { teamItem: 'teamDashPlus', cost: 2 },
+      { teamItem: 'teamJump', cost: 3 }
+    ];
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    maxPurchases = 2;
+  }
+
   let guard = 0;
-  while (state.enemyPE >= 2 && guard < 4) {
+  while (getPE() >= 1 && guard < maxPurchases) {
     guard++;
     let bought = false;
     for (let cIdx = 0; cIdx < candidates.length; cIdx++) {
       const cand = candidates[cIdx];
       if (cand.teamItem) {
-        if (!meta[cand.teamItem] && state.enemyPE >= cand.cost) {
+        if (!meta[cand.teamItem] && getPE() >= cand.cost) {
           meta[cand.teamItem] = true;
-          state.enemyPE -= cand.cost;
+          spendPE(cand.cost);
           bought = true;
           break;
         }
         continue;
       }
+      if (cand.extraDossard) {
+        if (getPE() === 1) {
+          const prefColors = Array.isArray(state.drawnBalls)
+            ? [...state.drawnBalls, ...COLOR_KEYS]
+            : COLOR_KEYS;
+          const pick = prefColors.find((c) => COLOR_KEYS.includes(c) && !meta.extraDossardBought[c]);
+          if (pick) {
+            meta.extraDossardBought[pick] = true;
+            meta.dossardStock[pick] += 1;
+            spendPE(1);
+            bought = true;
+            break;
+          }
+        }
+        continue;
+      }
       const def = INDIVIDUAL_POWERS.find((pw) => pw.key === cand.key);
-      if (!def || state.enemyPE < def.cost) continue;
+      if (!def || !isPowerItemAllowedInCurrentMode(def) || getPE() < def.cost) continue;
+
       for (let rIdx = 0; rIdx < cand.roles.length; rIdx++) {
         const r = cand.roles[rIdx];
         if (grantRolePowerItem(meta.powers[r], def)) {
-          state.enemyPE -= def.cost;
+          spendPE(def.cost);
           bought = true;
           break;
         }
@@ -2688,6 +2793,7 @@ export function startRoundExecution(fromNetwork = false) {
         type: 'MP_START_PLAY',
         gameMode: state.mode,
         vanillaMode: !!state.vanillaMode,
+        aiDifficulty: state.aiDifficulty || 'normal',
         mapId: state.mapId,
         round: state.round,
         teams: state.teams,
@@ -2878,6 +2984,10 @@ export function startNewMatch(mode, options = {}) {
   }
 
   const isVanilla = mode === 'tutorial' ? false : Boolean(options && options.vanillaMode);
+  if (options && (options.aiDifficulty === 'hard' || options.aiDifficulty === 'normal')) {
+    state.aiDifficulty = options.aiDifficulty;
+  }
+  ctx.api.resetAITacticalMemory?.();
   pendingTutorialIntro = mode === 'tutorial';
   state.mode = mode;
   state.vanillaMode = isVanilla;

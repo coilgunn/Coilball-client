@@ -2,7 +2,7 @@
 // COILBALL 3D — ULTIMATES ÉLÉMENTAIRES (FEU, FEUILLE, EAU & PREVIEW 3D)
 // ============================================================================
 
-import { FIELD, COLORS, TUTORIAL_TOTAL_STEPS, TUTORIAL_STEPS, state, mp, ctx } from './state.js';
+import { FIELD, COLORS, TUTORIAL_TOTAL_STEPS, TUTORIAL_STEPS, state, mp, ctx, lerpAngle } from './state.js';
 import { scene, players, getPlayer, spawnParticles } from './render3d.js';
 import {
   CANOPY_SPEC,
@@ -350,7 +350,7 @@ function rayToAABB2D(ox, oz, dirX, dirZ, minX, maxX, minZ, maxZ, maxLen) {
   return tmin >= 0 && tmin < maxLen ? tmin : maxLen;
 }
 
-function computeFireLaserMaxDist(ox, oy, oz, dirX, dirZ, maxLen = FIRE_ULT_MAX_LEN) {
+export function computeFireLaserMaxDist(ox, oy, oz, dirX, dirZ, maxLen = FIRE_ULT_MAX_LEN) {
   let bestT = maxLen;
 
   // 1. Limites de l'arène
@@ -910,9 +910,17 @@ function updateFireLasers(dt) {
           if (isHumanRemote) {
             f.aimAngle = c.facingAngle;
           } else {
+            if (typeof c._aiFireAimAngle === 'number' && Number.isFinite(c._aiFireAimAngle)) {
+              const turnRate = state.aiDifficulty === 'hard' ? 3.8 : 1.35;
+              f.aimAngle = lerpAngle(f.aimAngle, c._aiFireAimAngle, Math.min(1, turnRate * dt));
+            }
             c.facingAngle = f.aimAngle;
           }
         } else {
+          if (typeof c._aiFireAimAngle === 'number' && Number.isFinite(c._aiFireAimAngle)) {
+            const turnRate = state.aiDifficulty === 'hard' ? 3.8 : 1.35;
+            f.aimAngle = lerpAngle(f.aimAngle, c._aiFireAimAngle, Math.min(1, turnRate * dt));
+          }
           c.facingAngle = f.aimAngle;
         }
         f.dirX = Math.sin(f.aimAngle);

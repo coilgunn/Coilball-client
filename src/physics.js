@@ -106,7 +106,7 @@ import {
   hideMobaMoveMarker,
   updateMobaMoveMarkerAnim
 } from './ui.js';
-import { updateAIPlayer } from './ai.js';
+import { updateAIPlayer, updateSittingAI } from './ai.js';
 import {
   resetMatchStateToMenu,
   executePracticeAction,
@@ -140,6 +140,10 @@ export function initPhysics() {
   ctx.api.handleRemoteBallPass = handleRemoteBallPass;
   ctx.api.triggerJump = triggerJump;
   ctx.api.handleRemotePlayerJump = handleRemotePlayerJump;
+  ctx.api.getPlayerDashParams = getPlayerDashParams;
+  ctx.api.executePlayerDash = executePlayerDash;
+  ctx.api.triggerBoomerangReturn = triggerBoomerangReturn;
+  ctx.api.executeBallPassOrThrow = executeBallPassOrThrow;
 }
 // --- PATHING MOBA (GRILLE A* + CANOPÉE) ---
 let mobaPathNavVersion = -1;
@@ -340,7 +344,7 @@ export function updatePassCharge(dt) {
   state.passCharge.targetRole = bestAlly ? bestAlly.role : null;
 }
 
-function executeBallPassOrThrow(p, targetAlly, aimAngle, chargeRatio = 0) {
+export function executeBallPassOrThrow(p, targetAlly, aimAngle, chargeRatio = 0) {
   if (!p || p.state !== 'standing' || !p.carryingBall) return false;
 
   const ball = p.carryingBall;
@@ -612,7 +616,7 @@ export function triggerPlayerAction(p) {
   }
 }
 
-function getPlayerDashParams(p) {
+export function getPlayerDashParams(p) {
   if (state.vanillaMode) {
     return {
       isSuper: false,
@@ -643,7 +647,7 @@ function getPlayerDashParams(p) {
   };
 }
 
-function triggerBoomerangReturn(p) {
+export function triggerBoomerangReturn(p) {
   if (!p || !p.boomerangOrigin || p.boomerangWindow <= 0 || p.state !== 'standing' || p.carryingBall) {
     return false;
   }
@@ -669,8 +673,52 @@ function triggerBoomerangReturn(p) {
   }
   spawnParticles(new THREE.Vector3(orig.x, orig.y + 0.5, orig.z), 0xfacc15, 14);
   ctx.api.playSfx?.('dash_boomerang_return', { pos: p.pos });
-  triggerGamepadRumble(100, 0.45, 0.6);
-  showToast('🪃 <strong>Retour Boomerang !</strong>', 1200);
+  if (p.team === state.myTeam && p.role === state.controlledRole) {
+    triggerGamepadRumble(100, 0.45, 0.6);
+    showToast('🪃 <strong>Retour Boomerang !</strong>', 1200);
+  }
+  return true;
+}
+
+export function executePlayerDash(p, dirX, dirZ, { isHuman = false } = {}) {
+  if (!p || p.state !== 'standing' || p.carryingBall || p.isAirborne || p.isLaunching) return false;
+  if (p.dashCooldown > 0 || p.dashTimer > 0) return false;
+  const len = Math.hypot(dirX, dirZ);
+  if (len < 0.001) return false;
+  const dx = dirX / len;
+  const dz = dirZ / len;
+
+  const dp = getPlayerDashParams(p);
+  p.dashTimer = dp.duration;
+  p.dashMaxDuration = dp.duration;
+  p.dashSpeed = dp.speed;
+  p.dashKind = dp.kind;
+  p.dashCooldown = dp.cooldown;
+  p.dashCooldownMax = dp.cooldown;
+  p.dashIsSuper = dp.isSuper;
+  p.dashBouncesLeft = dp.kind === 'bounce' ? 3 : 0;
+  p.slidePatchDist = 0;
+  p.slideGlideTimer = 0;
+  p.slideGlideVx = 0;
+  p.slideGlideVz = 0;
+  if (dp.kind === 'boomerang') {
+    p.boomerangOrigin = { x: p.pos.x, y: p.pos.y, z: p.pos.z, onCanopy: !!p.onCanopy };
+    p.boomerangWindow = 2.0;
+  } else {
+    p.boomerangOrigin = null;
+    p.boomerangWindow = 0;
+  }
+  p.dashDirX = dx;
+  p.dashDirZ = dz;
+  p.facingAngle = Math.atan2(dx, dz);
+
+  spawnParticles(p.pos, COLORS[p.color].hex, dp.isSuper ? 16 : 12);
+  spawnParticles(p.pos, dp.isSuper ? 0x38bdf8 : 0xffffff, dp.isSuper ? 14 : 8);
+  if (dp.isSuper) spawnParticles(p.pos, 0xfacc15, 8);
+  ctx.api.playSfx?.(dp.kind ? 'dash_' + dp.kind : 'dash', { pos: p.pos, isSuper: dp.isSuper });
+  if (isHuman && p.team === state.myTeam && p.role === state.controlledRole) {
+    triggerGamepadRumble(dp.isSuper ? 130 : 90, dp.isSuper ? 0.5 : 0.35, dp.isSuper ? 0.7 : 0.5);
+  }
   return true;
 }
 
@@ -779,37 +827,10 @@ export function triggerDash(overrideAngle = null) {
     }
   }
 
-  const dp = getPlayerDashParams(p);
-  p.dashTimer = dp.duration;
-  p.dashMaxDuration = dp.duration;
-  p.dashSpeed = dp.speed;
-  p.dashKind = dp.kind;
-  p.dashCooldown = dp.cooldown;
-  p.dashCooldownMax = dp.cooldown;
-  p.dashIsSuper = dp.isSuper;
-  p.dashBouncesLeft = dp.kind === 'bounce' ? 3 : 0;
-  p.slidePatchDist = 0;
-  p.slideGlideTimer = 0;
-  p.slideGlideVx = 0;
-  p.slideGlideVz = 0;
-  if (dp.kind === 'boomerang') {
-    p.boomerangOrigin = { x: p.pos.x, y: p.pos.y, z: p.pos.z, onCanopy: !!p.onCanopy };
-    p.boomerangWindow = 2.0;
-  } else {
-    p.boomerangOrigin = null;
-    p.boomerangWindow = 0;
-  }
-  p.dashDirX = dx;
-  p.dashDirZ = dz;
-  p.facingAngle = Math.atan2(dx, dz);
-
-  spawnParticles(p.pos, COLORS[p.color].hex, dp.isSuper ? 16 : 12);
-  spawnParticles(p.pos, dp.isSuper ? 0x38bdf8 : 0xffffff, dp.isSuper ? 14 : 8);
-  if (dp.isSuper) spawnParticles(p.pos, 0xfacc15, 8);
-  ctx.api.playSfx?.(dp.kind ? 'dash_' + dp.kind : 'dash', { pos: p.pos, isSuper: dp.isSuper });
-  triggerGamepadRumble(dp.isSuper ? 130 : 90, dp.isSuper ? 0.5 : 0.35, dp.isSuper ? 0.7 : 0.5);
-  if (state.mode === 'tutorial' && state.tutorialStep === 1) {
-    markTutorialCheck('dashed');
+  if (executePlayerDash(p, dx, dz, { isHuman: true })) {
+    if (state.mode === 'tutorial' && state.tutorialStep === 1) {
+      markTutorialCheck('dashed');
+    }
   }
 }
 
@@ -1839,12 +1860,11 @@ export function updateGameplay(dt) {
     if (p.waterShieldTimer > 0) {
       p.waterShieldTimer = Math.max(0, p.waterShieldTimer - dt);
     }
-    if (!(p.team === state.myTeam && p.role === state.controlledRole && p.state === 'standing' && !p.carryingBall)) {
+    if (p.carryingBall || p.state !== 'standing') {
       p.dashTimer = 0;
-      if (p.carryingBall || p.state !== 'standing') {
-        p.boomerangWindow = 0;
-        p.boomerangOrigin = null;
-      }
+      p.slideGlideTimer = 0;
+      p.boomerangWindow = 0;
+      p.boomerangOrigin = null;
     }
   });
 
@@ -2044,6 +2064,15 @@ export function updateGameplay(dt) {
       p.mesh.bodyGroup.position.y = THREE.MathUtils.lerp(p.mesh.bodyGroup.position.y, -0.55, 8 * dt);
       p.mesh.leftLeg.rotation.x = THREE.MathUtils.lerp(p.mesh.leftLeg.rotation.x, -Math.PI / 2, 8 * dt);
       p.mesh.rightLeg.rotation.x = THREE.MathUtils.lerp(p.mesh.rightLeg.rotation.x, -Math.PI / 2, 8 * dt);
+      const isHumanSitting =
+        (p.team === state.myTeam && p.role === state.controlledRole) ||
+        (mp.enabled &&
+          Object.values(mp.remoteInputs).some(
+            (inp) => inp && inp.team === p.team && inp.role === p.role && now - inp.lastSeen < 10000
+          ));
+      if (!isHumanSitting) {
+        updateSittingAI(p, dt);
+      }
       return;
     }
 
@@ -3046,6 +3075,7 @@ export function finishRound(reasonText, fromNetwork = false, networkBounties = [
     state.prepInterval = null;
   }
   state.phase = 'round_end';
+  ctx.api.resetAITacticalMemory?.();
   unlockPointer();
 
   let bountyNotes = Array.isArray(networkBounties) ? [...networkBounties] : [];

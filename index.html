@@ -522,6 +522,7 @@
           <button type="button" class="action-btn" id="btn-toggle-mobile-mode" title="Activer les contrôles tactiles et adapter l'interface aux petits écrans">📱 Mode Mobile : OFF</button>
           <button type="button" class="action-btn" id="btn-opt-default-cam" title="Choisir la caméra utilisée par défaut au démarrage d'une partie">🎥 Caméra par défaut : TPS</button>
           <button type="button" class="action-btn" id="btn-opt-moba-click" title="Choisir le bouton de la souris pour déplacer la joueuse en vue MOBA">🖱️ Déplacement MOBA : Clic Droit</button>
+          <button type="button" class="action-btn" id="btn-toggle-ai-difficulty" title="Choisir le niveau de difficulté des joueuses contrôlées par l'IA">🤖 Difficulté IA : Normale</button>
         </div>
       </div>
 
@@ -674,6 +675,15 @@
         </div>
       </div>
 
+      <div class="mp-map-bar" id="arena-ai-diff-row" style="margin-top:10px;">
+        <span style="font-size:0.8rem; font-weight:800; color:#e2e8f0;">🤖 Difficulté IA :</span>
+        <div class="mp-map-pills">
+          <button type="button" class="mp-map-btn active" id="btn-arena-ai-normal">🤖 Normale</button>
+          <button type="button" class="mp-map-btn" id="btn-arena-ai-hard">🧠 Difficile</button>
+        </div>
+        <span id="arena-ai-diff-hint" style="font-size:0.74rem; color:#94a3b8; margin-left:auto;">IA équilibrée : dashs et ultimates mesurés</span>
+      </div>
+
       <div class="modal-footer">
         <button type="button" class="action-btn" id="btn-arena-back">⬅️ Retour</button>
         <button type="button" class="action-btn primary" id="btn-arena-launch">🚀 Lancer</button>
@@ -757,6 +767,16 @@
           <button type="button" class="mp-map-btn" id="btn-mp-rule-vanilla">🍦 Vanille</button>
         </div>
         <span id="mp-ruleset-hint" style="font-size:0.74rem; color:#94a3b8; margin-left:auto;">⚡ Standard : Ultimates (R2), Évos Dash, Dash+ &amp; Outils actifs</span>
+      </div>
+
+      <!-- Choix de la difficulté IA synchronisée dans le salon P2P -->
+      <div class="mp-map-bar" id="mp-ai-diff-bar">
+        <span style="font-size:0.8rem; font-weight:800; color:#e2e8f0;">🤖 Difficulté IA :</span>
+        <div class="mp-map-pills">
+          <button type="button" class="mp-map-btn active" id="btn-mp-ai-normal">🤖 Normale</button>
+          <button type="button" class="mp-map-btn" id="btn-mp-ai-hard">🧠 Difficile</button>
+        </div>
+        <span id="mp-ai-diff-hint" style="font-size:0.74rem; color:#94a3b8; margin-left:auto;">IA équilibrée pour les postes libres</span>
       </div>
 
       <!-- Choix de l'équipe et du rôle (1v1 Capitaines ou jusqu'à 3v3) -->
