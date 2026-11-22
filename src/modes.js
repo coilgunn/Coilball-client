@@ -80,6 +80,8 @@ import {
 const THREE = ctx.THREE;
 
 let pendingTutorialIntro = false;
+let tutorialIntroKind = 'welcome';
+let tutorialUltRecoverTimer = null;
 
 export function initModes() {
   ctx.api.dismissTutorialIntro = dismissTutorialIntro;
@@ -101,6 +103,10 @@ export function resetMatchStateToMenu() {
   if (typeof tutorialShopAutoReturnTimer !== 'undefined' && tutorialShopAutoReturnTimer) {
     clearTimeout(tutorialShopAutoReturnTimer);
     tutorialShopAutoReturnTimer = null;
+  }
+  if (tutorialUltRecoverTimer) {
+    clearTimeout(tutorialUltRecoverTimer);
+    tutorialUltRecoverTimer = null;
   }
   if (state.prepInterval) {
     clearInterval(state.prepInterval);
@@ -157,6 +163,8 @@ export function resetMatchStateToMenu() {
   if (tutIntro) tutIntro.classList.add('hidden');
   const tutOh = document.getElementById('tut-overhead-objective');
   if (tutOh) tutOh.classList.add('hidden');
+  const controlsHelp = document.getElementById('controls-help');
+  if (controlsHelp) controlsHelp.classList.add('collapsed-submenu');
   const ultWidget = document.getElementById('ult-hud-widget');
   if (ultWidget) ultWidget.classList.add('hidden');
   const r1Alert = document.getElementById('rule1-alert');
@@ -1426,6 +1434,7 @@ export function isTutorialRoleSwitchAllowed() {
   if (state.mode !== 'tutorial') return true;
   if (state.tutorialStep === TUTORIAL_STEPS.MOVEMENT) return !!state.tutorialChecklist.dashed;
   if (state.tutorialStep === TUTORIAL_STEPS.RULE1) return !!state.tutorialChecklist.rule1Locked;
+  if (state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) return true;
   return false;
 }
 
@@ -1446,8 +1455,10 @@ function syncTutorialEntityVisibility() {
         hidden = !(p.team === 'ally' && (p.role === 'G' || p.role === 'C'));
       } else if (step === TUTORIAL_STEPS.RULE1) {
         hidden = !(p.team === 'ally' || (p.team === 'enemy' && p.role === 'C'));
+      } else if (step === TUTORIAL_STEPS.ULTIMATE) {
+        hidden = !(p.team === 'ally' || (p.team === 'enemy' && p.role === 'D'));
       } else {
-        // Étapes Triangle (4), Outils (6), Ultimate (7) & MOBA (8) : Feu (G) et Adv D
+        // Étapes Triangle (4), Outils (6) & MOBA (8) : Feu (G) et Adv D
         hidden = !((p.team === 'ally' && p.role === 'G') || (p.team === 'enemy' && p.role === 'D'));
       }
     }
@@ -1527,7 +1538,7 @@ function getTutorialStepDef(stepNum) {
       desc: 'Prenez le ballon 🔥 Rouge et marquez au cerceau droit (+1 pt de victoire).',
       items: [
         { key: 'pickedBall', label: 'Prendre le ballon 🔥 Rouge', overhead: '🎯 Prendre le ballon 🔥 Rouge' },
-        { key: 'scoredGoal', label: 'Marquer au cerceau droit', overhead: '🎯 Marquer au cerceau droit →' }
+        { key: 'scoredGoal', label: 'Marquer au cerceau droit', overhead: '🎯 Marquer au cerceau droit' }
       ]
     },
     3: {
@@ -1592,24 +1603,56 @@ function getTutorialStepDef(stepNum) {
       ]
     },
     7: {
-      title: '7/8 — Ultimates 🔥',
+      title: '7/8 — Les 3 Ultimates ⚡',
       desc: isMob
-        ? 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. Maintenez ⚡ Ult, visez Adv D puis relâchez !'
-        : 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. [R] pour viser puis Clic Gauche !',
+        ? 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. Essayez les 3 éléments : 🔥 G, 💧 C et 🌿 D !'
+        : 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. Essayez les 3 éléments : 🔥 Gauche (G), 💧 Centre (C) et 🌿 Droit (D) !',
       extraHtml:
         '<div><strong>🔥 Feu :</strong> Laser plasma sniper (0.5s). <em>🌟 Évo :</em> +large/rapide + <strong>2 charges/ronde</strong> (3s CD).</div>' +
         '<div><strong>🌿 Feuille :</strong> Sprint 3x (2s) + mur de branches (4s). <em>🌟 Évo :</em> sprint <strong>4.2x (3.5s)</strong> + mur géant <strong>8s</strong> qui <strong>bloque totalement la vue</strong>.</div>' +
         '<div><strong>💧 Eau :</strong> Vague frontale (repousse + bouclier Feu). <em>🌟 Évo :</em> <strong>360°</strong>, portée +45% + <strong>rappel [R]</strong>.</div>',
       items: [
         {
-          key: 'ultAimed',
-          label: isMob ? 'Maintenir ⚡ Ult pour viser' : 'Viser Laser Feu ([R])',
-          overhead: isMob ? '🎯 Maintenir ⚡ Ult et glisser vers Adv D' : '🎯 Viser Laser Feu [R] vers Adv D'
+          key: 'ultFireFired',
+          label: '🔥 Feu : Rayon Plasma (Gauche G · [1])',
+          overhead:
+            state.controlledRole !== 'G'
+              ? isMob
+                ? 'Tapez Gauche (G) pour 🔥 Feu'
+                : isMoba
+                ? 'Appuyez sur [1] pour 🔥 Gauche (G)'
+                : 'Prenez 🔥 Gauche (G · [1])'
+              : isMob
+              ? 'Maintenez ⚡ Ult et visez Adv D'
+              : '🔥 Feu : [R] puis Clic Gauche vers Adv D'
         },
         {
-          key: 'ultFired',
-          label: isMob ? 'Relâcher ⚡ Ult pour tirer' : 'Tirer [Clic Gauche]',
-          overhead: isMob ? '🎯 Relâcher ⚡ Ult pour tirer !' : '🎯 Tirer Rayon Plasma [Clic Gauche]'
+          key: 'ultWaterFired',
+          label: '💧 Eau : Vague Déferlante (Centre C · [2])',
+          overhead:
+            state.controlledRole !== 'C'
+              ? isMob
+                ? 'Tapez Centre (C) pour 💧 Eau'
+                : isMoba
+                ? 'Appuyez sur [2] pour 💧 Centre (C)'
+                : 'Prenez 💧 Centre (C · [2])'
+              : isMob
+              ? 'Maintenez ⚡ Ult et visez Adv D'
+              : '💧 Eau : [R] puis Clic Gauche (Vague)'
+        },
+        {
+          key: 'ultLeafFired',
+          label: '🌿 Feuille : Sprint + Mur (Droit D · [3])',
+          overhead:
+            state.controlledRole !== 'D'
+              ? isMob
+                ? 'Tapez Droit (D) pour 🌿 Feuille'
+                : isMoba
+                ? 'Appuyez sur [3] pour 🌿 Droit (D)'
+                : 'Prenez 🌿 Droit (D · [3])'
+              : isMob
+              ? 'Lancez ⚡ Ult puis courez pour tracer un mur !'
+              : '🌿 Feuille : [R] + Clic G puis bougez pour tracer un mur !'
         }
       ]
     },
@@ -1640,7 +1683,30 @@ export function getNextTutorialObjectiveItem() {
   const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, state.tutorialStep || 1));
   const def = getTutorialStepDef(step);
   if (!def) return null;
-  return def.items.find((it) => !state.tutorialChecklist[it.key]) || null;
+  const next = def.items.find((it) => !state.tutorialChecklist[it.key]);
+  return next ? { ...next, stepTitle: def.title } : null;
+}
+
+function showTutorialIntroOverlay(kind = 'welcome') {
+  tutorialIntroKind = kind === 'ult' ? 'ult' : 'welcome';
+  pendingTutorialIntro = false;
+  state.tutorialIntroVisible = true;
+  unlockPointer();
+
+  const introEl = document.getElementById('tutorial-intro-overlay');
+  const cardEl = introEl ? introEl.querySelector('.tutorial-intro-card') : null;
+  const welcomePane = document.getElementById('tut-intro-pane-welcome');
+  const ultPane = document.getElementById('tut-intro-pane-ult');
+  const startBtn = document.getElementById('btn-tut-intro-start');
+
+  if (welcomePane) welcomePane.classList.toggle('hidden', tutorialIntroKind !== 'welcome');
+  if (ultPane) ultPane.classList.toggle('hidden', tutorialIntroKind !== 'ult');
+  if (cardEl) cardEl.classList.toggle('tut-intro-ult', tutorialIntroKind === 'ult');
+  if (startBtn) {
+    startBtn.textContent =
+      tutorialIntroKind === 'ult' ? '⚡ Essayer les 3 Ultimates !' : "▶ C'est parti !";
+  }
+  if (introEl) introEl.classList.remove('hidden');
 }
 
 export function dismissTutorialIntro() {
@@ -1650,7 +1716,18 @@ export function dismissTutorialIntro() {
   const wasVisible = !!state.tutorialIntroVisible;
   state.tutorialIntroVisible = false;
   if (state.mode === 'tutorial' && state.phase === 'play') {
-    if (wasVisible && state.tutorialStep === 1) {
+    if (!state.mobileMode) {
+      const controlsHelp = document.getElementById('controls-help');
+      if (controlsHelp) controlsHelp.classList.remove('collapsed-submenu');
+    }
+    if (wasVisible && tutorialIntroKind === 'ult' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
+      showToast(
+        state.mobileMode
+          ? '🔥 <strong>1/3 — Ultimate Feu (Gauche G) :</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
+          : '🔥 <strong>1/3 — Ultimate Feu (Gauche G) :</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma vers <strong>Adv D</strong> puis <strong>Clic Gauche</strong> !',
+        5000
+      );
+    } else if (wasVisible && state.tutorialStep === 1) {
       showToast(
         state.mobileMode
           ? '🎓 <strong>Étape 1/8 :</strong> Avancez au stick gauche jusqu’à la balise bleue pour débloquer le <strong>Dash</strong> !'
@@ -1816,7 +1893,7 @@ function updateTutorialSequenceHUD() {
   }
 
   if (btnShop) btnShop.classList.toggle('hidden', !(step === TUTORIAL_STEPS.TOOLS && !state.tutorialChecklist.toolBought));
-  if (btnRefUlt) btnRefUlt.classList.toggle('hidden', true);
+  if (btnRefUlt) btnRefUlt.classList.toggle('hidden', step !== TUTORIAL_STEPS.ULTIMATE);
   if (btnToPractice) btnToPractice.classList.toggle('hidden', step === TUTORIAL_TOTAL_STEPS);
   if (btnNext) {
     const ready = !!state.tutorialAwaitingConfirm;
@@ -1849,6 +1926,10 @@ export function completeTutorialToPractice(withCongrats = true) {
     clearTimeout(tutorialShopAutoReturnTimer);
     tutorialShopAutoReturnTimer = null;
   }
+  if (tutorialUltRecoverTimer) {
+    clearTimeout(tutorialUltRecoverTimer);
+    tutorialUltRecoverTimer = null;
+  }
   pendingTutorialIntro = false;
   setTutorialShopGuideStep(0);
   if (tutorialBeaconGroup) tutorialBeaconGroup.visible = false;
@@ -1857,6 +1938,8 @@ export function completeTutorialToPractice(withCongrats = true) {
   if (tutHud) tutHud.classList.add('hidden');
   const tutOh = document.getElementById('tut-overhead-objective');
   if (tutOh) tutOh.classList.add('hidden');
+  const controlsHelp = document.getElementById('controls-help');
+  if (controlsHelp) controlsHelp.classList.add('collapsed-submenu');
   const tutIntro = document.getElementById('tutorial-intro-overlay');
   if (tutIntro) tutIntro.classList.add('hidden');
   const r1Alert = document.getElementById('rule1-alert');
@@ -2112,6 +2195,44 @@ export function markTutorialCheck(key) {
       '👀 <strong>Dos vu : 🌿 Feuille !</strong> Votre <strong>🔥 Feu</strong> gagne contre 🌿 Feuille : <strong>touchez-la pour l’intercepter</strong> (+1 🪙 PO) !',
       4200
     );
+  } else if (!wasAlreadyDone && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
+    const isMob = !!state.mobileMode;
+    const isMoba = state.cameraMode === 'aerial';
+    const waterPrompt = isMob
+      ? '💧 <strong>2/3 — Ultimate Eau (Centre C) :</strong> Tapez <strong>C</strong> en bas puis maintenez <strong>⚡ Ult</strong> pour lancer la <strong>Vague Déferlante</strong> (repousse + bouclier contre le Feu) !'
+      : `💧 <strong>2/3 — Ultimate Eau (Centre C) :</strong> Appuyez sur <strong>[2]</strong>${isMoba ? '' : ' (ou Clic)'} puis <strong>[R] + Clic Gauche</strong> pour lancer la <strong>Vague Déferlante</strong> (repousse + bouclier contre le Feu) !`;
+    const leafPrompt = isMob
+      ? '🌿 <strong>3/3 — Ultimate Feuille (Droit D) :</strong> Tapez <strong>D</strong> en bas, lancez <strong>⚡ Ult</strong> puis courez pour tracer un <strong>mur de branches</strong> !'
+      : `🌿 <strong>3/3 — Ultimate Feuille (Droit D) :</strong> Appuyez sur <strong>[3]</strong>${isMoba ? '' : ' (ou Clic)'}, lancez <strong>[R] + Clic Gauche</strong> puis bougez pour tracer un <strong>mur de branches</strong> !`;
+    const firePrompt = isMob
+      ? '🔥 <strong>Ultimate Feu (Gauche G) :</strong> Tapez <strong>G</strong> en bas puis maintenez <strong>⚡ Ult</strong> vers <strong>Adv D</strong> !'
+      : `🔥 <strong>Ultimate Feu (Gauche G) :</strong> Appuyez sur <strong>[1]</strong>${isMoba ? '' : ' (ou Clic)'} puis <strong>[R] + Clic Gauche</strong> vers <strong>Adv D</strong> !`;
+
+    if (key === 'ultFireFired') {
+      if (tutorialUltRecoverTimer) clearTimeout(tutorialUltRecoverTimer);
+      tutorialUltRecoverTimer = setTimeout(() => {
+        tutorialUltRecoverTimer = null;
+        if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
+          const enemyD = getPlayer('enemy', 'D');
+          if (enemyD && enemyD.state === 'sitting') {
+            enemyD.state = 'standing';
+            enemyD.pos.set(10, getTerrainY(10, 0, state.mapId), 0);
+            enemyD.vel.set(0, 0, 0);
+            enemyD.targetPos.copy(enemyD.pos);
+            spawnParticles(enemyD.pos, 0xfacc15, 12);
+            updateRosterHUD();
+          }
+        }
+      }, 1800);
+      if (!state.tutorialChecklist.ultWaterFired) showToast(waterPrompt, 5500);
+      else if (!state.tutorialChecklist.ultLeafFired) showToast(leafPrompt, 5500);
+    } else if (key === 'ultWaterFired') {
+      if (!state.tutorialChecklist.ultLeafFired) showToast(leafPrompt, 5500);
+      else if (!state.tutorialChecklist.ultFireFired) showToast(firePrompt, 5500);
+    } else if (key === 'ultLeafFired') {
+      if (!state.tutorialChecklist.ultFireFired) showToast(firePrompt, 5500);
+      else if (!state.tutorialChecklist.ultWaterFired) showToast(waterPrompt, 5500);
+    }
   }
 
   if (key === 'rule1Locked' && state.tutorialStep === TUTORIAL_STEPS.RULE1) {
@@ -2148,6 +2269,10 @@ export function enterTutorialStep(stepNum) {
   if (tutorialShopAutoReturnTimer) {
     clearTimeout(tutorialShopAutoReturnTimer);
     tutorialShopAutoReturnTimer = null;
+  }
+  if (tutorialUltRecoverTimer) {
+    clearTimeout(tutorialUltRecoverTimer);
+    tutorialUltRecoverTimer = null;
   }
   const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, Number(stepNum) || 1));
   state.tutorialStep = step;
@@ -2304,8 +2429,35 @@ export function enterTutorialStep(stepNum) {
     );
   } else if (step === TUTORIAL_STEPS.ULTIMATE) {
     clearAllUltimates();
+    [allyG, allyC, allyD, enemyD].forEach((pl) => {
+      if (!pl) return;
+      pl.ultUsed = false;
+      pl.ultCooldown = 0;
+      pl.ultShotsUsed = 0;
+      pl.leafUltTimer = 0;
+      pl.waterShieldTimer = 0;
+      pl.state = 'standing';
+    });
+    if (allyG) {
+      allyG.pos.set(-12, 0, -6);
+      allyG.targetPos.copy(allyG.pos);
+      allyG.facingAngle = Math.atan2(22, 6);
+      allyG.targetFacingAngle = allyG.facingAngle;
+    }
+    if (allyC) {
+      allyC.pos.set(-12, 0, 0);
+      allyC.targetPos.copy(allyC.pos);
+      allyC.facingAngle = Math.PI / 2;
+      allyC.targetFacingAngle = allyC.facingAngle;
+    }
+    if (allyD) {
+      allyD.pos.set(-12, 0, 6);
+      allyD.targetPos.copy(allyD.pos);
+      allyD.facingAngle = Math.atan2(22, -6);
+      allyD.targetFacingAngle = allyD.facingAngle;
+    }
     if (enemyD) {
-      enemyD.pos.set(12, 0, FIELD.laneTopZ);
+      enemyD.pos.set(10, 0, 0);
       enemyD.targetPos.copy(enemyD.pos);
       enemyD.facingAngle = -Math.PI / 2;
       enemyD.targetFacingAngle = enemyD.facingAngle;
@@ -2314,12 +2466,7 @@ export function enterTutorialStep(stepNum) {
       selectControlledRole('G', { silent: true, force: true });
     }
     state.camYaw = -Math.PI / 2;
-    showToast(
-      state.mobileMode
-        ? '🔥 <strong>Étape 7/8 — Ultimate (1x/ronde, sauf 🔥 évolué) :</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
-        : '🔥 <strong>Étape 7/8 — Ultimate (1x/ronde, sauf 🔥 évolué) :</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma puis <strong>Clic Gauche</strong> !',
-      4600
-    );
+    showTutorialIntroOverlay('ult');
   } else if (step === TUTORIAL_STEPS.MOBA) {
     clearAllUltimates();
     if (state.cameraMode === 'aerial') {
@@ -2608,11 +2755,8 @@ export function startRoundExecution(fromNetwork = false) {
   const showTutIntro = state.mode === 'tutorial' && !state.tutorialPreserveStep && pendingTutorialIntro;
   const introEl = document.getElementById('tutorial-intro-overlay');
   if (showTutIntro) {
-    pendingTutorialIntro = false;
-    state.tutorialIntroVisible = true;
-    unlockPointer();
+    showTutorialIntroOverlay('welcome');
     showOnlyModal(null);
-    if (introEl) introEl.classList.remove('hidden');
   } else {
     state.tutorialIntroVisible = false;
     if (introEl) introEl.classList.add('hidden');
@@ -2626,6 +2770,10 @@ export function startRoundExecution(fromNetwork = false) {
   updateMobileTouchHUD();
 
   if (state.mode === 'tutorial') {
+    if (!state.tutorialPreserveStep && !state.mobileMode) {
+      const controlsHelp = document.getElementById('controls-help');
+      if (controlsHelp) controlsHelp.classList.remove('collapsed-submenu');
+    }
     if (state.tutorialPreserveStep) {
       state.tutorialPreserveStep = false;
       resumeTutorialStep3AfterShop();
@@ -2659,6 +2807,10 @@ export function startNewMatch(mode, options = {}) {
   if (tutorialShopAutoReturnTimer) {
     clearTimeout(tutorialShopAutoReturnTimer);
     tutorialShopAutoReturnTimer = null;
+  }
+  if (tutorialUltRecoverTimer) {
+    clearTimeout(tutorialUltRecoverTimer);
+    tutorialUltRecoverTimer = null;
   }
   document.body.classList.remove('game-paused');
   const tutIntro = document.getElementById('tutorial-intro-overlay');

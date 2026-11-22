@@ -1772,9 +1772,6 @@ function bindWildRiftAimButton(btnEl, actionType) {
       if (p && canPlayerUseUltimate(p, false)) {
         state.ultPreviewActive = true;
         state.ultPreviewAimAngle = mobileInput.aimAngle;
-        if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
-          ctx.api.markTutorialCheck?.('ultAimed');
-        }
         updateUltHudWidget();
       }
     }
@@ -1998,9 +1995,6 @@ function bindWildRiftAimButton(btnEl, actionType) {
     }
 
     if (actionType === 'ult') {
-      if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
-        ctx.api.markTutorialCheck?.('ultAimed');
-      }
       confirmUltimateTrigger(finalAngle);
     } else if (actionType === 'dash') {
       ctx.api.triggerDash?.(finalAngle);
@@ -2646,6 +2640,30 @@ export function selectControlledRole(role, options = {}) {
     } else if (role === 'D' && !state.tutorialChecklist.rule1Broken) {
       showToast('⚠️ <strong>Mauvais élément :</strong> Droit (D) est Feuille (🌿) et perd contre 🔥 ! Prenez <strong>Centre (C · 💧)</strong> pour débloquer la Règle 1 !', 3800);
     }
+  } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE && !options.silent && prevRole !== role) {
+    ctx.api.updateTutorialSequenceHUD?.();
+    if (role === 'G' && !state.tutorialChecklist.ultFireFired) {
+      showToast(
+        state.mobileMode
+          ? '🔥 <strong>Ultimate Feu (Gauche G) :</strong> Maintenez <strong>⚡ Ult</strong> vers <strong>Adv D</strong> pour tirer le Rayon Plasma !'
+          : '🔥 <strong>Ultimate Feu (Gauche G) :</strong> Appuyez sur <strong>[R]</strong> puis <strong>Clic Gauche</strong> vers <strong>Adv D</strong> !',
+        4200
+      );
+    } else if (role === 'C' && !state.tutorialChecklist.ultWaterFired) {
+      showToast(
+        state.mobileMode
+          ? '💧 <strong>Ultimate Eau (Centre C) :</strong> Maintenez <strong>⚡ Ult</strong> pour lancer la <strong>Vague Déferlante</strong> (repousse + bouclier Feu) !'
+          : '💧 <strong>Ultimate Eau (Centre C) :</strong> Appuyez sur <strong>[R]</strong> puis <strong>Clic Gauche</strong> pour lancer la <strong>Vague Déferlante</strong> (repousse + bouclier Feu) !',
+        4500
+      );
+    } else if (role === 'D' && !state.tutorialChecklist.ultLeafFired) {
+      showToast(
+        state.mobileMode
+          ? '🌿 <strong>Ultimate Feuille (Droit D) :</strong> Lancez <strong>⚡ Ult</strong> puis courez : vous tracez un <strong>mur de branches</strong> !'
+          : '🌿 <strong>Ultimate Feuille (Droit D) :</strong> Lancez <strong>[R] + Clic Gauche</strong> puis déplacez-vous pour tracer un <strong>mur de branches</strong> !',
+        4500
+      );
+    }
   }
   const me = mp.members.find((m) => m.peerId === mp.myPeerId);
   if (me && me.slot === 'ALL') {
@@ -3127,6 +3145,7 @@ let _tmpCamDesired = null;
 let _tmpCamLook = null;
 let _tmpProjVec = null;
 const _dashDomCache = { visible: false, left: '', top: '', bg: '', text: '' };
+const _tutObjCache = { visible: false, kicker: '', main: '', done: false };
 
 export function recenterMobaCamera(instant = false) {
   const controlled = getPlayer(state.myTeam, state.controlledRole) || players[0];
@@ -3761,52 +3780,56 @@ export function updateFloatingLabels() {
 
   const tutOverheadEl = document.getElementById('tut-overhead-objective');
   if (tutOverheadEl) {
-    const nextItem =
-      state.mode === 'tutorial' && state.phase === 'play' && !isMenuOpen() && controlled
-        ? ctx.api.getNextTutorialObjectiveItem()
-        : null;
+    const tutKickerEl = document.getElementById('tut-obj-kicker');
+    const tutMainEl = document.getElementById('tut-obj-main');
+    const canShowTutObj = state.mode === 'tutorial' && state.phase === 'play' && !isMenuOpen();
+    const nextItem = canShowTutObj ? ctx.api.getNextTutorialObjectiveItem() : null;
+
+    let show = false;
+    let kickerTxt = '';
+    let mainTxt = '';
+    let isDone = false;
+
     if (nextItem) {
-      _tmpProjVec.set(
-        controlled.pos.x,
-        controlled.pos.y + (controlled.state === 'sitting' ? 2.1 : 2.95),
-        controlled.pos.z
-      );
-      _tmpProjVec.project(camera);
-      if (_tmpProjVec.z <= 1) {
-        const ohX = Math.round(Math.max(110, Math.min(window.innerWidth - 110, _tmpProjVec.x * halfW + halfW)) * 2) / 2;
-        const ohY = Math.round(Math.max(104, -(_tmpProjVec.y * halfH) + halfH - 28) * 2) / 2;
+      show = true;
+      kickerTxt = nextItem.stepTitle || 'Objectif actuel';
+      mainTxt = String(nextItem.overhead || '').replace(/^🎯\s*/, '');
+    } else if (canShowTutObj && state.tutorialAwaitingConfirm) {
+      show = true;
+      isDone = true;
+      kickerTxt = state.tutorialStep < TUTORIAL_TOTAL_STEPS ? 'Étape validée' : 'Tutoriel terminé';
+      mainTxt =
+        state.tutorialStep < TUTORIAL_TOTAL_STEPS
+          ? state.mobileMode
+            ? 'Tapez Continuer'
+            : '[Espace] pour continuer'
+          : state.mobileMode
+          ? 'Tapez Mode Pratique'
+          : '[Espace] : Mode Pratique';
+    }
+
+    if (show) {
+      if (!_tutObjCache.visible || tutOverheadEl.classList.contains('hidden')) {
         tutOverheadEl.classList.remove('hidden');
-        tutOverheadEl.style.left = `${ohX}px`;
-        tutOverheadEl.style.top = `${ohY}px`;
-        if (tutOverheadEl.textContent !== nextItem.overhead) {
-          tutOverheadEl.textContent = nextItem.overhead;
-        }
-      } else {
-        tutOverheadEl.classList.add('hidden');
+        tutOverheadEl.style.left = '';
+        tutOverheadEl.style.top = '';
+        _tutObjCache.visible = true;
       }
-    } else if (state.mode === 'tutorial' && state.phase === 'play' && state.tutorialAwaitingConfirm && !isMenuOpen() && controlled) {
-      _tmpProjVec.set(controlled.pos.x, controlled.pos.y + 2.95, controlled.pos.z);
-      _tmpProjVec.project(camera);
-      if (_tmpProjVec.z <= 1) {
-        const ohX = Math.round(Math.max(110, Math.min(window.innerWidth - 110, _tmpProjVec.x * halfW + halfW)) * 2) / 2;
-        const ohY = Math.round(Math.max(104, -(_tmpProjVec.y * halfH) + halfH - 28) * 2) / 2;
-        const doneMsg =
-          state.tutorialStep < TUTORIAL_TOTAL_STEPS
-            ? state.mobileMode
-              ? '✨ Étape validée ! Tapez Continuer ▶'
-              : '✨ Étape validée ! [Espace] pour continuer'
-            : state.mobileMode
-            ? '🎉 Tutoriel terminé ! Tapez Mode Pratique ▶'
-            : '🎉 Tutoriel terminé ! [Espace] → Mode Pratique';
-        tutOverheadEl.classList.remove('hidden');
-        tutOverheadEl.style.left = `${ohX}px`;
-        tutOverheadEl.style.top = `${ohY}px`;
-        if (tutOverheadEl.textContent !== doneMsg) tutOverheadEl.textContent = doneMsg;
-      } else {
-        tutOverheadEl.classList.add('hidden');
+      if (_tutObjCache.done !== isDone) {
+        tutOverheadEl.classList.toggle('tut-obj-done', isDone);
+        _tutObjCache.done = isDone;
       }
-    } else {
+      if (tutKickerEl && _tutObjCache.kicker !== kickerTxt) {
+        tutKickerEl.textContent = kickerTxt;
+        _tutObjCache.kicker = kickerTxt;
+      }
+      if (tutMainEl && _tutObjCache.main !== mainTxt) {
+        tutMainEl.textContent = mainTxt;
+        _tutObjCache.main = mainTxt;
+      }
+    } else if (_tutObjCache.visible || !tutOverheadEl.classList.contains('hidden')) {
       tutOverheadEl.classList.add('hidden');
+      _tutObjCache.visible = false;
     }
   }
 }

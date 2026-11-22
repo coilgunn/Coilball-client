@@ -244,9 +244,6 @@ export function toggleUltimatePreview() {
     `${meta.icon} <strong>Visée Ultimate : ${meta.name}</strong> — <strong>Clic Gauche</strong> pour déclencher (<strong>R</strong> pour annuler)`,
     2600
   );
-  if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
-    ctx.api.markTutorialCheck('ultAimed');
-  }
   updateUltHudWidget();
 }
 
@@ -524,8 +521,9 @@ export function triggerPlayerUltimate(p, aimAngle = p.facingAngle, fromNetwork =
   if (p.team === state.myTeam && p.role === state.controlledRole) {
     ctx.api.triggerGamepadRumble(210, 0.75, 0.85);
     if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
-      ctx.api.markTutorialCheck('ultAimed');
-      ctx.api.markTutorialCheck('ultFired');
+      if (p.color === 'red') ctx.api.markTutorialCheck('ultFireFired');
+      else if (p.color === 'blue') ctx.api.markTutorialCheck('ultWaterFired');
+      else if (p.color === 'green') ctx.api.markTutorialCheck('ultLeafFired');
     }
   }
   ctx.api.updateRosterHUD();

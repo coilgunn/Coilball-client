@@ -17,7 +17,10 @@
 
   <!-- Étiquettes 3D projetées au-dessus des joueuses -->
   <div id="labels-container"></div>
-  <div id="tut-overhead-objective" class="hidden"></div>
+  <div id="tut-overhead-objective" class="hidden">
+    <span class="tut-obj-kicker" id="tut-obj-kicker">OBJECTIF ACTUEL</span>
+    <span class="tut-obj-main" id="tut-obj-main"></span>
+  </div>
 
   <!-- Curseur virtuel MOBA confiné à l'écran -->
   <div id="moba-virtual-cursor" class="hidden" aria-hidden="true">
@@ -142,7 +145,7 @@
       <button type="button" class="tut-step-pill" data-tut-step="4">4·🔺 PO</button>
       <button type="button" class="tut-step-pill" data-tut-step="5">5·Règle 1</button>
       <button type="button" class="tut-step-pill" data-tut-step="6">6·Outils</button>
-      <button type="button" class="tut-step-pill" data-tut-step="7">7·Ult 🔥</button>
+      <button type="button" class="tut-step-pill" data-tut-step="7">7·3 Ults ⚡</button>
       <button type="button" class="tut-step-pill" data-tut-step="8">8·MOBA 🦅</button>
     </div>
     <div class="tut-header-row">
@@ -277,20 +280,50 @@
   <!-- OVERLAY D'INTRODUCTION RAPIDE DU TUTORIEL -->
   <div class="tutorial-intro-overlay hidden" id="tutorial-intro-overlay" role="dialog" aria-modal="true" aria-labelledby="tut-intro-title">
     <div class="tutorial-intro-card">
-      <div class="tutorial-intro-header">
-        <span class="mode-card-badge">🎓 Tutoriel • But du Jeu</span>
-        <h2 id="tut-intro-title">Bienvenue dans Coilball !</h2>
-      </div>
-      <div class="tutorial-intro-grid">
-        <div class="tutorial-intro-box goal">
-          <h3>🏆 Gagner des points de victoire</h3>
-          <p>Ramassez un ballon <strong>de votre couleur</strong> et amenez-le dans le <strong>cerceau adverse</strong> pour marquer (premier à <strong>7 pts</strong> avec 2 d'écart).</p>
+      <div id="tut-intro-pane-welcome" class="tut-intro-pane">
+        <div class="tutorial-intro-header">
+          <span class="mode-card-badge">🎓 Tutoriel • But du Jeu</span>
+          <h2 id="tut-intro-title">Bienvenue dans Coilball !</h2>
         </div>
-        <div class="tutorial-intro-box coins">
-          <h3>🪙 Améliorer vos personnages</h3>
-          <p>Touchez les adversaires avec le bon élément (<strong>🌿 &gt; 💧 &gt; 🔥 &gt; 🌿</strong>) pour les intercepter, accumuler des <strong>pièces d'or (🪙 PO)</strong> et acheter des évolutions au magasin.</p>
+        <div class="tutorial-intro-grid">
+          <div class="tutorial-intro-box goal">
+            <h3>🏆 Gagner des points de victoire</h3>
+            <p>Ramassez un ballon <strong>de votre couleur</strong> et amenez-le dans le <strong>cerceau adverse</strong> pour marquer (premier à <strong>7 pts</strong> avec 2 d'écart).</p>
+          </div>
+          <div class="tutorial-intro-box coins">
+            <h3>🪙 Améliorer vos personnages</h3>
+            <p>Touchez les adversaires avec le bon élément (<strong>🌿 &gt; 💧 &gt; 🔥 &gt; 🌿</strong>) pour les intercepter, accumuler des <strong>pièces d'or (🪙 PO)</strong> et acheter des évolutions au magasin.</p>
+          </div>
         </div>
       </div>
+
+      <div id="tut-intro-pane-ult" class="tut-intro-pane hidden">
+        <div class="tutorial-intro-header">
+          <span class="mode-card-badge">🎓 Étape 7/8 • Ultimates Élémentaires</span>
+          <h2>⚡ Les 3 Ultimates (Ronde 2+)</h2>
+        </div>
+        <p class="tut-intro-sub">
+          À partir de la <strong>Ronde 2</strong>, chaque joueuse peut lancer son <strong>Ultimate 1x par ronde</strong> (sauf 🔥 Feu évolué : 2 charges), <strong>sans porter le ballon</strong> : appuyez sur <strong>[R]</strong> pour viser puis <strong>Clic Gauche</strong> (ou maintenez <strong>⚡ Ult</strong> sur mobile). Essayez les <strong>3 éléments</strong> sur le terrain !
+        </p>
+        <div class="tutorial-intro-grid ult-3col">
+          <div class="tutorial-intro-box ult-fire">
+            <h3>🔥 Feu — Gauche (G · [1])</h3>
+            <p><strong>Rayon Plasma :</strong> charge de 0.5s (visée libre) puis tir sniper longue portée qui assied toute cible touchée. Bloqué par les obstacles, le bois et l’eau.</p>
+            <p class="tut-ult-evo-note"><strong>🌟 Évolution (4 🪙 PO) :</strong> rayon plus large &amp; plus rapide + <strong>2 charges/ronde</strong> (3s de recharge entre les tirs).</p>
+          </div>
+          <div class="tutorial-intro-box ult-water">
+            <h3>💧 Eau — Centre (C · [2])</h3>
+            <p><strong>Vague Déferlante :</strong> large vague qui repousse les adversaires, vous protège du Feu pendant son lancement et contourne les obstacles (sauf le mur de bois).</p>
+            <p class="tut-ult-evo-note"><strong>🌟 Évolution (4 🪙 PO) :</strong> onde à <strong>360°</strong>, portée <strong>+45 %</strong>, bouclier prolongé &amp; <strong>réactivation [R]</strong> pour ramener les cibles touchées.</p>
+          </div>
+          <div class="tutorial-intro-box ult-leaf">
+            <h3>🌿 Feuille — Droit (D · [3])</h3>
+            <p><strong>Sprint Sylvestre :</strong> vitesse <strong>3x (2s)</strong> en semant des germes qui poussent 1s après en un <strong>mur de branches (4s)</strong> bloquant persos, balles, Feu et Eau.</p>
+            <p class="tut-ult-evo-note"><strong>🌟 Évolution (4 🪙 PO) :</strong> sprint <strong>4.2x (3.5s)</strong> → mur géant dense pendant <strong>8s</strong> qui <strong>bloque totalement la vue</strong> (même en hauteur).</p>
+          </div>
+        </div>
+      </div>
+
       <div class="tutorial-intro-footer">
         <button type="button" class="action-btn primary" id="btn-tut-intro-start">▶ C'est parti !</button>
       </div>
