@@ -239,11 +239,13 @@ export function toggleUltimatePreview() {
   state.ultPreviewActive = true;
   state.ultPreviewAimAngle = getUltimateAimAngle(p);
   ctx.api.playSfx?.('ult_aim');
-  const meta = getUltimateMeta(p.color, p);
-  ctx.api.showToast(
-    `${meta.icon} <strong>Visée Ultimate : ${meta.name}</strong> — <strong>Clic Gauche</strong> pour déclencher (<strong>R</strong> pour annuler)`,
-    2600
-  );
+  if (state.mode === 'tutorial') {
+    const meta = getUltimateMeta(p.color, p);
+    ctx.api.showToast(
+      `${meta.icon} <strong>Visée Ultimate : ${meta.name}</strong> — <strong>Clic Gauche</strong> pour déclencher (<strong>R</strong> pour annuler)`,
+      2600
+    );
+  }
   updateUltHudWidget();
 }
 
@@ -253,7 +255,9 @@ export function cancelUltimatePreview(showFeedback = false) {
   if (ultPreviewGroup) ultPreviewGroup.visible = false;
   if (showFeedback) {
     ctx.api.playSfx?.('ult_cancel');
-    ctx.api.showToast('✖️ <strong>Visée Ultimate annulée.</strong>', 1300);
+    if (state.mode === 'tutorial') {
+      ctx.api.showToast('✖️ <strong>Visée Ultimate annulée.</strong>', 1300);
+    }
   }
   updateUltHudWidget();
 }

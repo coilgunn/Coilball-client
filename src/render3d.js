@@ -1499,9 +1499,9 @@ export function createPlayerMesh(team, role) {
   ringGroup.add(floorRing);
 
   const arrowShape = new THREE.Shape();
-  arrowShape.moveTo(0, 1.2);
-  arrowShape.lineTo(-0.3, 0.78);
-  arrowShape.lineTo(0.3, 0.78);
+  arrowShape.moveTo(0, -1.2);
+  arrowShape.lineTo(0.3, -0.78);
+  arrowShape.lineTo(-0.3, -0.78);
   arrowShape.closePath();
   const arrowGeo = new THREE.ShapeGeometry(arrowShape);
   const arrowMesh = new THREE.Mesh(arrowGeo, ringMat);

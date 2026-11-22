@@ -3160,6 +3160,7 @@ export function recenterMobaCamera(instant = false) {
     const backZ = 21 * zoom;
     camera.position.set(state.mobaCamX, state.mobaCamY + height, state.mobaCamZ + backZ);
     camera.lookAt(state.mobaCamX, state.mobaCamY + 1.0, state.mobaCamZ);
+    camera.updateMatrixWorld();
   }
 }
 
@@ -3206,6 +3207,7 @@ export function updateCamera(dt) {
       controlled.pos.z - Math.cos(state.camYaw) * 6
     );
     camera.lookAt(_tmpCamLook);
+    camera.updateMatrixWorld();
   } else {
     const zoom = state.aerialZoom || 1.0;
     if (!state.mobaCamInitialized) {
@@ -3284,6 +3286,7 @@ export function updateCamera(dt) {
     camera.position.set(state.mobaCamX, baseY + height, state.mobaCamZ + backZ);
     _tmpCamLook.set(state.mobaCamX, baseY + 1.0, state.mobaCamZ);
     camera.lookAt(_tmpCamLook);
+    camera.updateMatrixWorld();
     occTargetX = state.mobaCamX;
     occTargetY = baseY + 1.45;
     occTargetZ = state.mobaCamZ;
@@ -3558,6 +3561,7 @@ export function updateAerialVisionCones3D() {
 
 export function updateFloatingLabels() {
   updateTeamVisionState();
+  camera.updateMatrixWorld();
   const vp = getViewportSize();
   const halfW = vp.w / 2;
   const halfH = vp.h / 2;
@@ -3672,6 +3676,8 @@ export function updateFloatingLabels() {
       : `<span class="mini-dot" style="background:#64748b"></span><span>?</span>`;
 
     const inBush = p.state === 'standing' && !!isPointInJungleBush(p.pos);
+    lbl.classList.toggle('is-ally', isMyTeam);
+    lbl.classList.toggle('is-enemy', !isMyTeam);
     lbl.classList.toggle('in-bush', inBush);
 
     let statusTag = '';

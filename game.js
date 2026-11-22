@@ -242,14 +242,13 @@ function animate(now) {
   updateMobileTouchHUD();
   updateParticles(dt);
   updateWorldAnimations(dt);
+  syncViewportIfResized();
   updateCamera(dt);
   updateFloatingLabels();
   updateAerialVisionCones3D();
   if (!state.lowSpecMode || lowSpecFrameCounter % 3 === 0) {
     renderMinimap();
   }
-
-  syncViewportIfResized();
 
   renderer.render(scene, camera);
 }
