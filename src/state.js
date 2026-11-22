@@ -221,7 +221,7 @@ export const INDIVIDUAL_POWERS = [
     icon: '🌟',
     shortLabel: '🌟 Ult Évolué',
     title: "🌟 Évolution d'Ultimate (1/perso — 4 🪙 PO)",
-    desc: 'Persiste sur G/C/D quel que soit l’élément : 🔥 +large/rapide & 2 charges (3s CD) • 💧 360°, portée+ & rappel [R] • 🌿 sprint & mur plus longs/rapides.',
+    desc: 'Persiste sur la joueuse quel que soit son élément (1x/ronde, sauf 🔥 évolué) :<br>• <strong>🔥 Feu :</strong> rayon plus large/rapide + <strong>2 charges/ronde</strong> (3s CD).<br>• <strong>🌿 Feuille :</strong> sprint <strong>4.2x (3.5s)</strong> → mur géant dense pendant <strong>8s</strong> qui <strong>bloque totalement la vue</strong> (même en hauteur).<br>• <strong>💧 Eau :</strong> vague <strong>360°</strong>, portée +45%, bouclier plus long &amp; <strong>rappel [R]</strong> des cibles touchées.',
     cost: 4
   },
   {
@@ -495,6 +495,7 @@ export const state = {
   tutorialAwaitingConfirm: false,
   tutorialPreserveStep: false,
   tutorialIntroVisible: false,
+  tutorialShopGuideStep: 0,
   practiceCursorFree: false,
   preTutorialMapId: 'classic',
   restoreMapAfterTutorial: false,
@@ -538,6 +539,7 @@ export const state = {
   mobaEdgePan: true,
   mobaCursorLock: true,
   mobaCamSpeed: 1.0,
+  mobaCursorSensitivity: 1.0,
   tpsSensitivity: 1.0,
   mouseInWindow: true,
   controls: cloneDefaultControls(),

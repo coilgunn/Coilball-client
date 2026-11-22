@@ -85,6 +85,8 @@ export function initModes() {
   ctx.api.dismissTutorialIntro = dismissTutorialIntro;
   ctx.api.completeTutorialToPractice = completeTutorialToPractice;
   ctx.api.advanceTutorialStep = advanceTutorialStep;
+  ctx.api.updateTutorialSequenceHUD = updateTutorialSequenceHUD;
+  ctx.api.setTutorialShopGuideStep = setTutorialShopGuideStep;
 }
 
 export function resetMatchStateToMenu() {
@@ -132,6 +134,7 @@ export function resetMatchStateToMenu() {
   state.tutorialAwaitingConfirm = false;
   state.tutorialPreserveStep = false;
   state.tutorialIntroVisible = false;
+  setTutorialShopGuideStep(0);
   state.restoreMapAfterTutorial = false;
   state.practiceShopPreservePlay = false;
   state.practiceCursorFree = false;
@@ -721,6 +724,11 @@ export function openPrepModal(options = {}) {
   } else {
     switchPrepSubmenu(state.prepTab || 'dossards');
   }
+  if (state.mode !== 'tutorial') {
+    setTutorialShopGuideStep(0);
+  } else {
+    updateTutorialShopGuideUI();
+  }
 
   const timerBadge = document.getElementById('prep-timer-badge');
   if (state.prepInterval) clearInterval(state.prepInterval);
@@ -1137,7 +1145,7 @@ export function renderShopItems() {
     freeBasicsNote.style.cssText =
       'grid-column:1 / -1; background:rgba(245,158,11,0.16); border:1px solid rgba(250,204,21,0.65); border-radius:10px; padding:8px 11px; font-size:0.78rem; color:#fef08a; line-height:1.35;';
     freeBasicsNote.innerHTML =
-      '🛠️ <strong>Tutoriel Étape 6/8 — Outils :</strong> Achetez un <strong>Outil</strong> (📡 Balise, 🧱 Mur 3m ou ⚡ Tapis — 3 🪙 PO) pour votre joueuse <strong>G</strong>, puis déployez-le sur le terrain avec <strong>[E]</strong> (sans balle) !';
+      '🛠️ <strong>Tutoriel Étape 6/8 — Outils :</strong> Suivez le guide ci-dessus puis achetez un <strong>Outil</strong> (📡 Balise, 🧱 Mur 3m ou ⚡ Tapis — 3 🪙 PO) pour <strong>Gauche (G)</strong> et déployez-le avec <strong>[E]</strong> (sans balle) !';
   } else {
     freeBasicsNote.style.cssText =
       'grid-column:1 / -1; background:rgba(14,165,233,0.12); border:1px solid rgba(56,189,248,0.35); border-radius:10px; padding:7px 11px; font-size:0.75rem; color:#bae6fd; line-height:1.35;';
@@ -1164,6 +1172,7 @@ export function renderShopItems() {
     const hdr = document.createElement('div');
     hdr.className = 'shop-cat-header';
     hdr.setAttribute('data-shop-cat', 'individual');
+    hdr.setAttribute('data-shop-section', sec.id);
     hdr.textContent = sec.label;
     shopGrid.appendChild(hdr);
 
@@ -1314,6 +1323,9 @@ export function renderShopItems() {
   });
 
   applyPrepShopCategoryFilter();
+  if (state.mode === 'tutorial' && state.tutorialShopGuideStep > 0) {
+    updateTutorialShopGuideUI();
+  }
 }
 
 function buyIndividualPower(powerKey, cost, targetRole = null) {
@@ -1463,14 +1475,18 @@ function syncTutorialEntityVisibility() {
 function getTutorialStepDef(stepNum) {
   const step = Math.min(TUTORIAL_TOTAL_STEPS, Math.max(1, Number(stepNum) || 1));
   const isMob = !!state.mobileMode;
+  const isMoba = state.cameraMode === 'aerial';
   const moveClickLbl = state.mobaMoveButton === 'left' ? 'Clic Gauche' : 'Clic Droit';
+  const r1Locked = !!state.tutorialChecklist.rule1Locked;
 
   const defs = {
     1: {
       title: '1/8 — Mouvement',
       desc: isMob
-        ? 'Stick gauche vers la balise → Dash → changer de perso puis revenir sur G.'
-        : 'Bougez vers la balise → Dash [Shift] → changer de perso puis revenir sur G.',
+        ? 'Stick gauche vers la balise → Dash → changer de position (Gauche G · Centre C · Droit D) puis revenir sur G.'
+        : isMoba
+        ? 'Déplacez-vous vers la balise → Dash [Shift] → changer de position ([2]/[3] sans clic : Gauche G · Centre C · Droit D) puis revenir sur G [1].'
+        : 'Bougez vers la balise → Dash [Shift] → changer de position (Gauche G [1] · Centre C [2] · Droit D [3]) puis revenir sur G.',
       items: [
         { key: 'movedToBeacon', label: 'Rejoindre la balise', overhead: '🎯 Rejoindre la balise bleue' },
         {
@@ -1480,13 +1496,29 @@ function getTutorialStepDef(stepNum) {
         },
         {
           key: 'switchedRole',
-          label: isMob ? 'Changer de perso (Taper C ou D)' : 'Changer de perso ([2 / 3] ou Clic)',
-          overhead: isMob ? '🎯 Taper C ou D en bas' : '🎯 Changer de perso [2 / 3 ou Clic]'
+          label: isMob
+            ? 'Changer de position (Taper C ou D)'
+            : isMoba
+            ? 'Changer de position ([2] Centre C ou [3] Droit D)'
+            : 'Changer de position ([2 / 3] ou Clic)',
+          overhead: isMob
+            ? '🎯 Taper Centre (C) ou Droit (D) en bas'
+            : isMoba
+            ? '🎯 Changer de position : [2] (C) ou [3] (D)'
+            : '🎯 Changer de position [2 / 3 ou Clic]'
         },
         {
           key: 'returnedToFirstRole',
-          label: isMob ? 'Revenir à 🔥 G (Taper G en bas)' : 'Revenir au 1er perso G ([1] ou Clic)',
-          overhead: isMob ? '🎯 Revenir à 🔥 G (Taper G en bas)' : '🎯 Revenir au 1er perso 🔥 G [1 ou Clic]'
+          label: isMob
+            ? 'Revenir à Gauche (G) 🔥 (Taper G en bas)'
+            : isMoba
+            ? 'Revenir à Gauche (G) 🔥 ([1])'
+            : 'Revenir à Gauche (G) 🔥 ([1] ou Clic)',
+          overhead: isMob
+            ? '🎯 Revenir à Gauche (G) 🔥 (Taper G en bas)'
+            : isMoba
+            ? '🎯 Revenir à Gauche (G) 🔥 [1]'
+            : '🎯 Revenir à Gauche (G) 🔥 [1 ou Clic]'
         }
       ]
     },
@@ -1501,50 +1533,56 @@ function getTutorialStepDef(stepNum) {
     3: {
       title: '3/8 — Passes 🎯',
       desc: isMob
-        ? 'Prenez le ballon 🔥 Rouge, maintenez ⚽ Passe et visez 💧 C (même d’une autre couleur) !'
-        : 'Prenez le ballon 🔥 Rouge, maintenez [E] pour charger la portée et passez à 💧 C (même d’une autre couleur) !',
+        ? 'Prenez le ballon 🔥 Rouge, maintenez ⚽ Passe et visez 💧 Centre (C) (même d’une autre couleur) !'
+        : 'Prenez le ballon 🔥 Rouge, maintenez [E] pour charger la portée et passez à 💧 Centre (C) (même d’une autre couleur) !',
       items: [
         { key: 'pickedPassBall', label: 'Prendre le ballon 🔥 Rouge', overhead: '🎯 Prendre le ballon 🔥 Rouge' },
         {
           key: 'passedBall',
-          label: isMob ? 'Passer à 💧 C (Maintenir ⚽ Passe)' : 'Passer à 💧 C (Maintenir [E])',
-          overhead: isMob ? '🎯 Maintenir ⚽ Passe et viser 💧 C' : '🎯 Viser 💧 C et maintenir [E] pour passer'
+          label: isMob ? 'Passer à 💧 Centre (C) (Maintenir ⚽ Passe)' : 'Passer à 💧 Centre (C) (Maintenir [E])',
+          overhead: isMob ? '🎯 Maintenir ⚽ Passe et viser 💧 Centre (C)' : '🎯 Viser 💧 Centre (C) et maintenir [E] pour passer'
         }
       ]
     },
     4: {
       title: '4/8 — Triangle & 🪙 PO',
-      desc: '🔥 > 🌿. Contournez Adv D pour voir son dos (?), puis interceptez-la pour gagner des 🪙 PO !',
+      desc: '🔥 Feu gagne contre 🌿 Feuille (🌿 > 💧 > 🔥 > 🌿). Passez derrière Adv D pour voir son dos (?), puis touchez-la avec le bon élément pour l’intercepter (+🪙 PO) !',
       items: [
-        { key: 'backSeen', label: 'Voir le dos d’Adv D (?)', overhead: '🎯 Contourner Adv D pour voir son dos (?)' },
-        { key: 'intercepted', label: 'Intercepter 🔥 > 🌿 (+🪙 PO)', overhead: '🎯 Intercepter Adv D (🔥 > 🌿) → +🪙 PO' }
+        { key: 'backSeen', label: 'Contourner Adv D pour voir son dos (?)', overhead: '🎯 Passez derrière Adv D pour voir son dos (?)' },
+        { key: 'intercepted', label: 'Touchez Adv D pour l’intercepter (🔥 gagne contre 🌿)', overhead: '🎯 🔥 bat 🌿 : touchez-la pour l’intercepter !' }
       ]
     },
     5: {
-      title: '5/8 — Règle 1 ⚡',
-      desc: isMob
-        ? 'Même couleur = blocage ! Seul le bon élément (💧 > 🔥) libère G : tapez C puis interceptez Adv C.'
-        : 'Même couleur = blocage ! Seul le bon élément (💧 > 🔥) libère G : incarnez 💧 C [2] et interceptez Adv C.',
+      title: r1Locked ? '5/8 — Règle 1 ⚡' : '5/8 — Même couleur ? ⚡',
+      desc: !r1Locked
+        ? 'Voyez ce qui se passe si vous touchez quelqu’un de la même couleur : allez toucher Adv C (🔥) !'
+        : isMob
+        ? 'Règle 1 ! Même couleur = blocage face à face. Seul le bon élément (💧 > 🔥) libère Gauche (G) : tapez Centre (C) puis touchez Adv C.'
+        : 'Règle 1 ! Même couleur = blocage face à face. Seul le bon élément (💧 > 🔥) libère Gauche (G) : passez sur Centre (C) [2] puis touchez Adv C.',
       items: [
-        { key: 'rule1Locked', label: 'Collision même couleur (🔥 = 🔥)', overhead: '🎯 Avancer sur Adv C (🔥) → blocage Règle 1' },
+        { key: 'rule1Locked', label: 'Toucher Adv C (🔥 = 🔥) — même couleur', overhead: '🎯 Voyez ce qui se passe si vous touchez Adv C (🔥) !' },
         {
           key: 'rule1Switched',
-          label: isMob ? 'Prendre le bon élément : 💧 C (Taper C)' : 'Prendre le bon élément : 💧 C ([2] ou Clic)',
-          overhead: isMob ? '🎯 Seule 💧 > 🔥 libère G ! Tapez C en bas' : '🎯 Seule 💧 > 🔥 libère G ! Prenez 💧 C [2]'
+          label: isMob
+            ? 'Prendre Centre (C) 💧 (Taper C)'
+            : isMoba
+            ? 'Prendre Centre (C) 💧 ([2])'
+            : 'Prendre Centre (C) 💧 ([2] ou Clic)',
+          overhead: isMob ? '🎯 Seule 💧 > 🔥 libère G ! Tapez Centre (C)' : '🎯 Seule 💧 > 🔥 libère G ! Touche [2] (Centre C)'
         },
-        { key: 'rule1Broken', label: 'Intercepter Adv C (💧 > 🔥) pour libérer G', overhead: '🎯 Intercepter Adv C (🔥) avec 💧 C !' }
+        { key: 'rule1Broken', label: 'Touchez Adv C avec 💧 Centre (C) pour libérer G', overhead: '🎯 💧 bat 🔥 : touchez Adv C pour libérer G !' }
       ]
     },
     6: {
       title: '6/8 — Outils 🛠️',
       desc: isMob
-        ? 'Ouvrez 🛒 Boutique, achetez un outil (📡/🧱/⚡) pour G puis déployez-le (bouton outil, sans balle) !'
-        : 'Ouvrez Boutique [B], achetez un outil (📡/🧱/⚡) pour G puis déployez-le avec [E] (sans balle) !',
+        ? 'Ouvrez 🛒 Boutique, suivez le guide (corridors, sections, outils), achetez un outil pour Gauche (G) puis déployez-le (sans balle) !'
+        : 'Ouvrez Boutique [B] pour suivre le guide (corridors, sections, outils), achetez un outil pour Gauche (G) puis déployez-le avec [E] (sans balle) !',
       items: [
         {
           key: 'toolBought',
-          label: isMob ? 'Acheter un Outil (🛒 Boutique)' : 'Acheter un Outil (Boutique [B])',
-          overhead: isMob ? '🎯 Taper 🛒 Boutique : acheter un Outil pour G' : '🎯 Boutique [B] : acheter un Outil pour G'
+          label: isMob ? 'Acheter un Outil pour Gauche (G) (🛒 Boutique)' : 'Acheter un Outil pour Gauche (G) (Boutique [B])',
+          overhead: isMob ? '🎯 Taper 🛒 Boutique : guide + Outil pour G' : '🎯 Boutique [B] : guide + Outil pour Gauche (G)'
         },
         {
           key: 'toolDeployed',
@@ -1554,10 +1592,14 @@ function getTutorialStepDef(stepNum) {
       ]
     },
     7: {
-      title: '7/8 — Visée Ultimate 🔥',
+      title: '7/8 — Ultimates 🔥',
       desc: isMob
-        ? 'Ultimate débloqué ! Maintenez ⚡ Ult, visez vers Adv D puis relâchez.'
-        : 'Ultimate débloqué ! [R] pour viser le Rayon Feu puis Clic Gauche.',
+        ? 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. Maintenez ⚡ Ult, visez Adv D puis relâchez !'
+        : 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. [R] pour viser puis Clic Gauche !',
+      extraHtml:
+        '<div><strong>🔥 Feu :</strong> Laser plasma sniper (0.5s). <em>🌟 Évo :</em> +large/rapide + <strong>2 charges/ronde</strong> (3s CD).</div>' +
+        '<div><strong>🌿 Feuille :</strong> Sprint 3x (2s) + mur de branches (4s). <em>🌟 Évo :</em> sprint <strong>4.2x (3.5s)</strong> + mur géant <strong>8s</strong> qui <strong>bloque totalement la vue</strong>.</div>' +
+        '<div><strong>💧 Eau :</strong> Vague frontale (repousse + bouclier Feu). <em>🌟 Évo :</em> <strong>360°</strong>, portée +45% + <strong>rappel [R]</strong>.</div>',
       items: [
         {
           key: 'ultAimed',
@@ -1575,7 +1617,7 @@ function getTutorialStepDef(stepNum) {
       title: '8/8 — Vue MOBA 🦅',
       desc: isMob
         ? 'Basculez en vue MOBA (🎥 TPS → 🦅 MOBA) puis utilisez le stick gauche pour bouger !'
-        : `Basculez en vue aérienne MOBA [M] (ou bouton 🎥 Vue) puis déplacez-vous au ${moveClickLbl} !`,
+        : `Basculez en vue MOBA [M] (ou 🎥 Vue), déplacez-vous au ${moveClickLbl} — et utilisez [1/2/3] (sans clic) pour Gauche / Centre / Droit !`,
       items: [
         {
           key: 'mobaToggled',
@@ -1732,6 +1774,7 @@ function updateTutorialSequenceHUD() {
   const def = getTutorialStepDef(step);
   const titleEl = document.getElementById('tut-step-title');
   const descEl = document.getElementById('tut-step-desc');
+  const extraEl = document.getElementById('tut-step-extra');
   const listEl = document.getElementById('tut-checklist');
   const pillsEl = document.getElementById('tut-steps-bar');
   const btnShop = document.getElementById('btn-tut-open-shop');
@@ -1741,6 +1784,15 @@ function updateTutorialSequenceHUD() {
 
   if (titleEl) titleEl.textContent = def.title;
   if (descEl) descEl.textContent = def.desc;
+  if (extraEl) {
+    if (def.extraHtml) {
+      extraEl.innerHTML = def.extraHtml;
+      extraEl.classList.remove('hidden');
+    } else {
+      extraEl.innerHTML = '';
+      extraEl.classList.add('hidden');
+    }
+  }
 
   if (pillsEl && pillsEl.children) {
     Array.from(pillsEl.children).forEach((pill) => {
@@ -1798,6 +1850,7 @@ export function completeTutorialToPractice(withCongrats = true) {
     tutorialShopAutoReturnTimer = null;
   }
   pendingTutorialIntro = false;
+  setTutorialShopGuideStep(0);
   if (tutorialBeaconGroup) tutorialBeaconGroup.visible = false;
 
   const tutHud = document.getElementById('tutorial-sequence-hud');
@@ -2034,20 +2087,31 @@ export function markTutorialCheck(key) {
       if (allyD && !allyD.tutorialHidden) spawnParticles(allyD.pos, COLORS[allyD.color].hex, 14);
       updateRosterHUD();
       updateMobileTouchHUD();
+      const isMoba = state.cameraMode === 'aerial';
       showToast(
         state.mobileMode
-          ? '👥 <strong>Coéquipières apparues !</strong> Tapez <strong>C</strong> ou <strong>D</strong> en bas pour changer de perso !'
-          : '👥 <strong>Coéquipières apparues !</strong> Utilisez <strong>[2 / 3]</strong> ou <strong>Clic</strong> pour changer de perso !',
-        3200
+          ? '👥 <strong>Coéquipières apparues !</strong> Tapez <strong>Centre (C)</strong> ou <strong>Droit (D)</strong> en bas pour changer de position !'
+          : isMoba
+          ? '👥 <strong>Coéquipières apparues !</strong> Utilisez <strong>[2]</strong> (Centre C) ou <strong>[3]</strong> (Droit D) — sans clic en mode MOBA !'
+          : '👥 <strong>Coéquipières apparues !</strong> Changez de position : <strong>[2] Centre (C)</strong> ou <strong>[3] Droit (D)</strong> (ou Clic) !',
+        3400
       );
     } else if (key === 'switchedRole' && !state.tutorialChecklist.returnedToFirstRole) {
+      const isMoba = state.cameraMode === 'aerial';
       showToast(
         state.mobileMode
-          ? '🔄 <strong>Bien joué !</strong> Revenez maintenant sur votre <strong>1er personnage (🔥 G)</strong> en tapant <strong>G</strong> en bas !'
-          : '🔄 <strong>Bien joué !</strong> Revenez maintenant sur votre <strong>1er personnage (🔥 G)</strong> avec <strong>[1]</strong> ou <strong>Clic</strong> !',
+          ? '🔄 <strong>Bien joué !</strong> Revenez maintenant sur <strong>Gauche (G 🔥)</strong> en tapant <strong>G</strong> en bas !'
+          : isMoba
+          ? '🔄 <strong>Bien joué !</strong> Revenez maintenant sur <strong>Gauche (G 🔥)</strong> avec <strong>[1]</strong> !'
+          : '🔄 <strong>Bien joué !</strong> Revenez maintenant sur <strong>Gauche (G 🔥)</strong> avec <strong>[1]</strong> ou Clic !',
         3600
       );
     }
+  } else if (!wasAlreadyDone && state.tutorialStep === TUTORIAL_STEPS.TRIANGLE && key === 'backSeen' && !state.tutorialChecklist.intercepted) {
+    showToast(
+      '👀 <strong>Dos vu : 🌿 Feuille !</strong> Votre <strong>🔥 Feu</strong> gagne contre 🌿 Feuille : <strong>touchez-la pour l’intercepter</strong> (+1 🪙 PO) !',
+      4200
+    );
   }
 
   if (key === 'rule1Locked' && state.tutorialStep === TUTORIAL_STEPS.RULE1) {
@@ -2056,6 +2120,7 @@ export function markTutorialCheck(key) {
   }
 
   if (key === 'toolBought' && state.tutorialStep === TUTORIAL_STEPS.TOOLS && state.phase === 'prep') {
+    setTutorialShopGuideStep(0);
     if (tutorialShopAutoReturnTimer) clearTimeout(tutorialShopAutoReturnTimer);
     showToast('✔ <strong>Outil acheté !</strong> Retour sur le terrain...', 1400);
     tutorialShopAutoReturnTimer = setTimeout(() => {
@@ -2164,8 +2229,8 @@ export function enterTutorialStep(stepNum) {
     state.camYaw = -Math.PI / 2;
     showToast(
       state.mobileMode
-        ? '🎯 <strong>Étape 3/8 — Passes :</strong> Prenez le ballon <strong>🔥 Rouge</strong>, puis maintenez <strong>⚽ Passe</strong> et visez <strong>💧 C</strong> !'
-        : '🎯 <strong>Étape 3/8 — Passes :</strong> Prenez le ballon <strong>🔥 Rouge</strong>, puis maintenez <strong>[E]</strong> en visant <strong>💧 C</strong> !',
+        ? '🎯 <strong>Étape 3/8 — Passes :</strong> Prenez le ballon <strong>🔥 Rouge</strong>, puis maintenez <strong>⚽ Passe</strong> et visez <strong>💧 Centre (C)</strong> !'
+        : '🎯 <strong>Étape 3/8 — Passes :</strong> Prenez le ballon <strong>🔥 Rouge</strong>, puis maintenez <strong>[E]</strong> en visant <strong>💧 Centre (C)</strong> !',
       4400
     );
   } else if (step === TUTORIAL_STEPS.TRIANGLE) {
@@ -2180,7 +2245,10 @@ export function enterTutorialStep(stepNum) {
       selectControlledRole('G', { silent: true, force: true });
     }
     state.camYaw = -Math.PI / 2;
-    showToast('🔺 <strong>Étape 4/8 :</strong> Contournez Adv D (🌿) pour voir son dos (?), puis interceptez-la (🔥 > 🌿) !', 4000);
+    showToast(
+      '🔺 <strong>Étape 4/8 — Interception :</strong> Passez derrière <strong>Adv D</strong> pour voir son dos (?). Comme <strong>🔥 Feu gagne contre 🌿 Feuille</strong>, il suffit ensuite de la <strong>toucher</strong> (+1 🪙 PO) !',
+      4600
+    );
   } else if (step === TUTORIAL_STEPS.RULE1) {
     if (allyG) {
       allyG.pos.set(-16, 0, FIELD.laneTopZ);
@@ -2211,7 +2279,7 @@ export function enterTutorialStep(stepNum) {
     }
     state.camYaw = -Math.PI / 2;
     showToast(
-      '⚡ <strong>Étape 5/8 — Règle 1 :</strong> Avancez sur <strong>Adv C (🔥)</strong> ! Même couleur = blocage — seul le <strong>bon élément (💧 > 🔥)</strong> pourra libérer G !',
+      '❓ <strong>Étape 5/8 :</strong> Voyez ce qui se passe si vous touchez quelqu’un de la <strong>même couleur</strong> : allez toucher <strong>Adv C (🔥)</strong> !',
       4800
     );
   } else if (step === TUTORIAL_STEPS.TOOLS) {
@@ -2230,8 +2298,8 @@ export function enterTutorialStep(stepNum) {
     state.camYaw = -Math.PI / 2;
     showToast(
       state.mobileMode
-        ? '🛠️ <strong>Étape 6/8 — Outils :</strong> Ouvrez <strong>🛒 Boutique</strong>, achetez un outil (📡/🧱/⚡) pour G puis déployez-le (bouton outil, sans balle) !'
-        : '🛠️ <strong>Étape 6/8 — Outils :</strong> Ouvrez la Boutique <strong>[B]</strong> (ou 🛒 Boutique), achetez un outil (📡/🧱/⚡) pour G puis déployez-le avec <strong>[E]</strong> (sans balle) !',
+        ? '🛠️ <strong>Étape 6/8 — Outils :</strong> Ouvrez <strong>🛒 Boutique</strong> pour découvrir le magasin, achetez un outil pour <strong>Gauche (G)</strong> puis déployez-le (sans balle) !'
+        : '🛠️ <strong>Étape 6/8 — Outils :</strong> Ouvrez la Boutique <strong>[B]</strong> pour suivre le guide du magasin, achetez un outil pour <strong>Gauche (G)</strong> puis déployez-le avec <strong>[E]</strong> !',
       4800
     );
   } else if (step === TUTORIAL_STEPS.ULTIMATE) {
@@ -2248,9 +2316,9 @@ export function enterTutorialStep(stepNum) {
     state.camYaw = -Math.PI / 2;
     showToast(
       state.mobileMode
-        ? '🔥 <strong>Étape 7/8 — Ultimate débloqué !</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
-        : '🔥 <strong>Étape 7/8 — Ultimate débloqué !</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma puis <strong>Clic Gauche</strong> !',
-      4200
+        ? '🔥 <strong>Étape 7/8 — Ultimate (1x/ronde, sauf 🔥 évolué) :</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
+        : '🔥 <strong>Étape 7/8 — Ultimate (1x/ronde, sauf 🔥 évolué) :</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma puis <strong>Clic Gauche</strong> !',
+      4600
     );
   } else if (step === TUTORIAL_STEPS.MOBA) {
     clearAllUltimates();
@@ -2285,6 +2353,91 @@ export function enterTutorialStep(stepNum) {
   updateMobileTouchHUD();
 }
 
+function clearTutorialShopHighlights() {
+  document.querySelectorAll('#prep-modal .tut-shop-highlight').forEach((el) => {
+    el.classList.remove('tut-shop-highlight');
+  });
+}
+
+export function updateTutorialShopGuideUI() {
+  const guideEl = document.getElementById('tutorial-shop-guide');
+  if (!guideEl) return;
+  clearTutorialShopHighlights();
+
+  const step = state.mode === 'tutorial' ? Number(state.tutorialShopGuideStep) || 0 : 0;
+  if (step < 1 || step > 3) {
+    guideEl.classList.add('hidden');
+    return;
+  }
+
+  guideEl.classList.remove('hidden');
+  const badgeEl = document.getElementById('tut-shop-guide-badge');
+  const titleEl = document.getElementById('tut-shop-guide-title');
+  const bodyEl = document.getElementById('tut-shop-guide-body');
+  const prevBtn = document.getElementById('btn-tut-shop-prev');
+  const nextBtn = document.getElementById('btn-tut-shop-next');
+
+  const steps = {
+    1: {
+      badge: '🎓 Guide du Magasin (1/3)',
+      title: '⚽ Corridors des ballons',
+      body: 'En haut, vous voyez la couleur des <strong>2 ballons</strong> tirés pour la ronde : le <strong>Couloir Gauche</strong> (en face de <strong>Gauche G</strong>) et le <strong>Couloir Droit</strong> (en face de <strong>Droit D</strong>). Répartissez vos dossards ci-dessous selon ces corridors !',
+      nextLabel: 'Suivant (Sections) ▶'
+    },
+    2: {
+      badge: '🎓 Guide du Magasin (2/3)',
+      title: '📑 Sections du Magasin',
+      body: 'Le menu est divisé en <strong>3 sections</strong> : <strong>🎽 1. Dossards (G / C / D)</strong> pour choisir vos éléments, <strong>⚡ 2. Pouvoirs Individuels</strong> (Actions de base, <strong>🌟 Ult Évolué</strong>, <strong>💨 Évos Dash</strong> et <strong>🛠️ Outils</strong>) et <strong>🛡️ 3. Bonus d’Équipe</strong> (Dossard +, Dash+, Saut).',
+      nextLabel: 'Suivant (Trouver les Outils) ▶'
+    },
+    3: {
+      badge: '🎓 Guide du Magasin (3/3)',
+      title: '🛠️ Où trouver les Outils',
+      body: 'Les <strong>🛠️ Outils</strong> se trouvent dans l’onglet <strong>⚡ 2. Pouvoirs Individuels</strong>, tout en bas de la liste ! Cliquez sur le bouton <strong>G</strong> d’un outil en surbrillance (<strong>📡 Balise</strong>, <strong>🧱 Mur 3m</strong> ou <strong>⚡ Tapis</strong> — 3 🪙 PO) pour l’équiper sur <strong>Gauche (G)</strong>.',
+      nextLabel: 'Compris ✔'
+    }
+  };
+
+  const info = steps[step];
+  if (badgeEl) badgeEl.textContent = info.badge;
+  if (titleEl) titleEl.textContent = info.title;
+  if (bodyEl) bodyEl.innerHTML = info.body;
+  if (prevBtn) prevBtn.classList.toggle('hidden', step <= 1);
+  if (nextBtn) nextBtn.textContent = info.nextLabel;
+
+  if (step === 1) {
+    const ballsBar = document.getElementById('prep-balls-preview-bar');
+    if (ballsBar) ballsBar.classList.add('tut-shop-highlight');
+  } else if (step === 2) {
+    const tabsBar = document.getElementById('prep-submenu-tabs');
+    if (tabsBar) tabsBar.classList.add('tut-shop-highlight');
+  } else if (step === 3) {
+    const toolHdr = document.querySelector('#shop-items-grid [data-shop-section="tool"]');
+    if (toolHdr) {
+      toolHdr.classList.add('tut-shop-highlight');
+      setTimeout(() => {
+        if (state.tutorialShopGuideStep === 3 && toolHdr.isConnected) {
+          toolHdr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 60);
+    }
+    document.querySelectorAll('#shop-items-grid .shop-item.tut-shop-focus').forEach((el) => {
+      el.classList.add('tut-shop-highlight');
+    });
+  }
+}
+
+export function setTutorialShopGuideStep(stepNum) {
+  const step = Math.max(0, Math.min(3, Number(stepNum) || 0));
+  state.tutorialShopGuideStep = step;
+  if (step === 1) {
+    switchPrepSubmenu('dossards');
+  } else if (step === 3) {
+    switchPrepSubmenu('individual');
+  }
+  updateTutorialShopGuideUI();
+}
+
 export function openTutorialShopStep3() {
   if (state.mode !== 'tutorial' || state.phase !== 'play' || state.tutorialStep !== TUTORIAL_STEPS.TOOLS) return;
   if (!state.teams.ally.powers.G.toolEvo) {
@@ -2292,7 +2445,13 @@ export function openTutorialShopStep3() {
   }
   state.tutorialPreserveStep = true;
   unlockPointer();
-  openPrepModal({ defaultTab: 'individual' });
+  if (!state.tutorialChecklist.toolBought) {
+    state.tutorialShopGuideStep = 1;
+    openPrepModal({ defaultTab: 'dossards' });
+  } else {
+    state.tutorialShopGuideStep = 0;
+    openPrepModal({ defaultTab: 'individual' });
+  }
 }
 
 function resumeTutorialStep3AfterShop() {
@@ -2383,6 +2542,7 @@ export function startRoundExecution(fromNetwork = false) {
   });
 
   resetPointerLockFlags();
+  setTutorialShopGuideStep(0);
   state.practiceShopPreservePlay = false;
   state.phase = 'play';
   ctx.api.playSfx?.('round_start');
@@ -2541,6 +2701,7 @@ export function startNewMatch(mode, options = {}) {
   state.tutorialAwaitingConfirm = false;
   state.tutorialPreserveStep = false;
   state.tutorialIntroVisible = false;
+  setTutorialShopGuideStep(0);
   state.restoreMapAfterTutorial = false;
   state.practiceShopPreservePlay = false;
   state.practiceCursorFree = false;

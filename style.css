@@ -576,6 +576,7 @@ body.play-cursor-hidden * {
   bottom: 14px;
   left: 16px;
   z-index: 10;
+  max-width: min(430px, calc(100vw - 32px));
   pointer-events: auto;
   background: var(--bg-dark);
   backdrop-filter: blur(10px);
@@ -698,27 +699,26 @@ body.mode-tutorial #banner-toast:not(.priority-toast) {
   max-width: 480px;
 }
 
-body.mode-tutorial #controls-help:not(.collapsed-submenu) {
-  bottom: 220px;
-}
-
-/* PANNEAU GUIDÉ COMPACT (COIN BAS GAUCHE) : SÉQUENCE TUTORIEL (8 ÉTAPES) */
+/* PANNEAU GUIDÉ COMPACT (CENTRE HAUT SOUS TUTORIEL) : SÉQUENCE TUTORIEL (8 ÉTAPES) */
 #tutorial-sequence-hud {
   position: fixed;
-  bottom: 14px;
-  left: 16px;
+  top: calc(96px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: auto;
   z-index: 13;
-  width: min(296px, calc(100vw - 32px));
+  width: min(450px, calc(100vw - 32px));
+  max-width: min(450px, max(290px, calc(100vw - 600px)));
   pointer-events: auto;
   background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(8px);
   border: 1.5px solid rgba(34, 197, 94, 0.58);
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.48);
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 #tutorial-sequence-hud.hidden {
@@ -727,8 +727,14 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
 
 .tut-steps-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 3px;
+}
+
+@media (max-width: 1120px) {
+  .tut-steps-bar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .tut-step-pill {
@@ -783,6 +789,23 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
   font-size: 0.68rem;
   color: #cbd5e1;
   line-height: 1.28;
+}
+
+.tut-step-extra {
+  font-size: 0.66rem;
+  line-height: 1.32;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tut-step-extra.hidden {
+  display: none;
 }
 
 .tut-checklist {
@@ -1476,6 +1499,68 @@ body.mode-tutorial #controls-help:not(.collapsed-submenu) {
   border-color: rgba(250, 204, 21, 0.85);
   background: rgba(245, 158, 11, 0.14);
   box-shadow: 0 0 12px rgba(250, 204, 21, 0.22);
+}
+
+/* GUIDE INTERACTIF DU MAGASIN (TUTORIEL ÉTAPE 6) */
+.tutorial-shop-guide {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(245, 158, 11, 0.14));
+  border: 1.5px solid rgba(250, 204, 21, 0.72);
+  border-radius: 14px;
+  padding: 12px 15px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tutorial-shop-guide.hidden {
+  display: none;
+}
+
+.tut-shop-guide-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tut-shop-guide-badge {
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.22);
+  border: 1px solid rgba(250, 204, 21, 0.65);
+  color: #fde047;
+}
+
+.tut-shop-guide-title {
+  font-size: 0.94rem;
+  font-weight: 900;
+  color: #f8fafc;
+}
+
+.tut-shop-guide-body {
+  font-size: 0.82rem;
+  line-height: 1.44;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.tut-shop-guide-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tut-shop-highlight {
+  outline: 2px solid #facc15 !important;
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.24), 0 0 18px rgba(250, 204, 21, 0.48) !important;
+  border-radius: 12px;
+  position: relative;
+  z-index: 2;
 }
 
 .shop-item-info h4 {
@@ -3214,12 +3299,14 @@ body.mobile-mode #tutorial-sequence-hud {
   transform: translateX(-50%);
   bottom: auto;
   width: min(260px, calc(100vw - 24px));
+  max-width: none;
   padding: 4px 8px;
   gap: 3px;
 }
 
 body.mobile-mode #tutorial-sequence-hud .tut-steps-bar,
 body.mobile-mode #tutorial-sequence-hud .tut-step-desc,
+body.mobile-mode #tutorial-sequence-hud .tut-step-extra,
 body.mobile-mode #tutorial-sequence-hud .tut-check-item.done {
   display: none;
 }

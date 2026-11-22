@@ -2897,9 +2897,9 @@ function resolveContact(ally, enemy) {
       markTutorialCheck('rule1Locked');
       showToast(
         state.mobileMode
-          ? '⚡ <strong>RÈGLE 1 !</strong> 🔥 G et 🔥 Adv C sont bloquées face à face ! <strong>Seul le bon élément (💧 > 🔥)</strong> peut libérer G — tapez <strong>C</strong> en bas !'
-          : '⚡ <strong>RÈGLE 1 !</strong> 🔥 G et 🔥 Adv C sont bloquées face à face ! <strong>Seul le bon élément (💧 > 🔥)</strong> peut libérer G — incarnez <strong>💧 C [2]</strong> !',
-        5000
+          ? '⚡ <strong>RÈGLE 1 !</strong> Même couleur = blocage ! 🔥 Gauche (G) et 🔥 Adv C sont bloquées face à face. <strong>Seul le bon élément (💧 > 🔥)</strong> libère G — tapez <strong>Centre (C)</strong> puis touchez Adv C !'
+          : '⚡ <strong>RÈGLE 1 !</strong> Même couleur = blocage ! 🔥 Gauche (G) et 🔥 Adv C sont bloquées face à face. <strong>Seul le bon élément (💧 > 🔥)</strong> libère G — passez sur <strong>💧 Centre (C) [2]</strong> puis touchez Adv C !',
+        5500
       );
     } else if (state.mode === 'tutorial') {
       setTimeout(() => {

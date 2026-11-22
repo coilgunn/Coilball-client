@@ -2826,8 +2826,8 @@ export function updateUltHudWidget() {
     if (subEl) {
       subEl.textContent =
         state.mode === 'tutorial'
-          ? `🔒 Débloqué à l’étape ${TUTORIAL_STEPS.ULTIMATE}/${TUTORIAL_TOTAL_STEPS} du tutoriel`
-          : '🔒 Débloqué à partir de la Ronde 2';
+          ? `🔒 Débloqué à l’étape ${TUTORIAL_STEPS.ULTIMATE}/${TUTORIAL_TOTAL_STEPS} du tutoriel • 1x/ronde`
+          : '🔒 Débloqué dès la Ronde 2 • 1x/ronde (sauf 🔥 évo)';
     }
     return;
   }
@@ -2859,7 +2859,12 @@ export function updateUltHudWidget() {
   if (p.ultUsed) {
     widget.classList.add('ult-used');
     if (titleEl) titleEl.textContent = `Ultimate (${p.role}) : ${meta.name}`;
-    if (subEl) subEl.textContent = '✔ Utilisé pour cette ronde';
+    if (subEl) {
+      subEl.textContent =
+        p.color === 'red' && hasPlayerUltEvo(p)
+          ? '✔ 2/2 charges utilisées pour cette ronde'
+          : '✔ Utilisé pour cette ronde (1x/ronde)';
+    }
     return;
   }
 
@@ -2885,8 +2890,9 @@ export function updateUltHudWidget() {
   } else {
     if (titleEl) titleEl.textContent = `[R] Ultimate (${p.role}) : ${meta.name}`;
     if (subEl) {
-      const chargesHint = p.color === 'red' && hasPlayerUltEvo(p) ? ' (2 charges)' : '';
-      subEl.textContent = `Appuyez sur R (visée) puis Clic Gauche${chargesHint}`;
+      const freqHint =
+        p.color === 'red' && hasPlayerUltEvo(p) ? '2 charges (Évo 🔥)' : '1x/ronde';
+      subEl.textContent = `${freqHint} • [R] puis Clic Gauche`;
     }
   }
 }

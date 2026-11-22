@@ -71,7 +71,7 @@
     <div id="hud-left-body">
       <div id="hud-pane-roster">
         <div class="roster-section-title">
-          <span>Vos Joueuses (Clic G / D)</span>
+          <span id="ally-roster-title">Vos Joueuses ([1/2/3] / Clic)</span>
           <span style="color:#fde047;">Dos connu</span>
         </div>
         <div id="ally-roster-list"></div>
@@ -97,13 +97,14 @@
           &#8593; Rouge (🔥 Flamme) bat Vert (🌿 Feuille) &#8629;
         </div>
         <p class="rps-sub">
+          • <strong>Intercepter :</strong> touchez une adversaire avec le <strong>bon élément</strong> (🌿 &gt; 💧 &gt; 🔥 &gt; 🌿) pour la faire asseoir (+1 🪙 PO).<br/>
           • <strong>Prendre une balle</strong> : même couleur que votre dossard.<br/>
           • <strong>Couleur cachée</strong> : passez derrière une adversaire pour voir son dos !<br/>
           • <strong>Même couleur</strong> : Règle 1 (bloquées sur place).<br/>
-          • <strong>Ultimates (Ronde 2+, touche R puis Clic G)</strong> :<br/>
-          &nbsp;&nbsp;🔥 <em>Feu</em> : Laser plasma sniper (charge 0.5s, visée libre, assied tout le monde, bloqué par obstacles/bois/eau).<br/>
-          &nbsp;&nbsp;🌿 <em>Feuille</em> : Sprint x3 (2s) + germes → Mur de branches &amp; plessis (après 1s, dure 4s).<br/>
-          &nbsp;&nbsp;💧 <em>Eau</em> : Large vague (repousse, protège du feu, contourne obstacles sauf mur de bois).
+          • <strong>Ultimates (Ronde 2+, 1x/ronde par joueuse sauf 🔥 évolué, touche R puis Clic G, sans ballon)</strong> :<br/>
+          &nbsp;&nbsp;🔥 <em>Feu</em> : Laser plasma sniper (charge 0.5s, visée libre, assied tout le monde, bloqué par obstacles/bois/eau). <strong>🌟 Évo :</strong> plus large/rapide + <strong>2 charges/ronde</strong> (3s CD).<br/>
+          &nbsp;&nbsp;🌿 <em>Feuille</em> : Sprint 3x (2s) semant des germes → Mur de branches 1s après (dure 4s, bloque persos/balles/feu/eau). <strong>🌟 Évo :</strong> sprint <strong>4.2x (3.5s)</strong> → mur géant dense pendant <strong>8s</strong> bloquant <strong>totalement la vue</strong> (même en hauteur).<br/>
+          &nbsp;&nbsp;💧 <em>Eau</em> : Large vague frontale (repousse, protège du feu, contourne obstacles sauf mur de bois). <strong>🌟 Évo :</strong> vague <strong>360°</strong>, portée +45%, bouclier plus long &amp; <strong>rappel [R]</strong> des cibles.
         </p>
       </div>
     </div>
@@ -148,6 +149,7 @@
       <span class="tut-step-title" id="tut-step-title">1/8 — Mouvement</span>
     </div>
     <p class="tut-step-desc" id="tut-step-desc">Rejoignez la balise, dashez et changez de perso.</p>
+    <div class="tut-step-extra hidden" id="tut-step-extra"></div>
     <div class="tut-checklist" id="tut-checklist"></div>
     <div class="tut-actions-row">
       <button type="button" class="action-btn hidden" id="btn-tut-open-shop" style="border-color:#fbbf24; color:#fde047; padding:4px 8px; font-size:0.69rem;">🛒 Boutique [B]</button>
@@ -187,7 +189,7 @@
   <!-- Alerte Règle 1 de Rocket League -->
   <div id="rule1-alert" class="hidden">
     ⚡ RÈGLE 1 DE ROCKET LEAGUE ! Même couleur : les deux joueuses restent bloquées face à face !<br/>
-    <span style="font-size:0.82rem; font-weight:600;">Seul le bon élément (🌿 &gt; 💧 &gt; 🔥 &gt; 🌿) peut débloquer la situation : changez de perso ([1/2/3] ou Clic) pour libérer votre coéquipière !</span>
+    <span style="font-size:0.82rem; font-weight:600;">Seul le bon élément (🌿 &gt; 💧 &gt; 🔥 &gt; 🌿) peut débloquer la situation : changez de position — Gauche (G·[1]), Centre (C·[2]), Droit (D·[3]) — pour toucher l'adversaire !</span>
   </div>
 
   <!-- Indicateur HUD de l'Ultimate Élémentaire (Ronde 2+) -->
@@ -195,7 +197,7 @@
     <span class="ult-hud-icon" id="ult-hud-icon">🔒</span>
     <div class="ult-hud-info">
       <span class="ult-hud-title" id="ult-hud-title">Ultimate [R] — Dès la Ronde 2</span>
-      <span class="ult-hud-sub" id="ult-hud-sub">1x par ronde • Sans ballon</span>
+      <span class="ult-hud-sub" id="ult-hud-sub">1x/ronde (2 charges si 🔥 évolué) • Sans ballon</span>
     </div>
   </div>
 
@@ -286,7 +288,7 @@
         </div>
         <div class="tutorial-intro-box coins">
           <h3>🪙 Améliorer vos personnages</h3>
-          <p>Interceptez les adversaires (<strong>🌿 &gt; 💧 &gt; 🔥 &gt; 🌿</strong>) pour accumuler des <strong>pièces d'or (🪙 PO)</strong> et acheter des évolutions au magasin.</p>
+          <p>Touchez les adversaires avec le bon élément (<strong>🌿 &gt; 💧 &gt; 🔥 &gt; 🌿</strong>) pour les intercepter, accumuler des <strong>pièces d'or (🪙 PO)</strong> et acheter des évolutions au magasin.</p>
         </div>
       </div>
       <div class="tutorial-intro-footer">
@@ -370,13 +372,17 @@
           <div class="rule-box">
             <h3>2. Intercepter (Assoyage)</h3>
             <p>
-              Au contact : <strong>Vert (🌿 Feuille) bat Bleu (💧 Goutte)</strong>, <strong>Bleu (💧 Goutte) bat Rouge (🔥 Flamme)</strong>, <strong>Rouge (🔥 Flamme) bat Vert (🌿 Feuille)</strong>. La joueuse faible s'assied jusqu'à la fin de la ronde et lâche son ballon (<strong>+1 pièce d'or / 🪙 PO</strong>).
+              Il suffit de toucher une adversaire avec le bon élément : <strong>Vert (🌿 Feuille) bat Bleu (💧 Goutte)</strong>, <strong>Bleu (💧 Goutte) bat Rouge (🔥 Flamme)</strong>, <strong>Rouge (🔥 Flamme) bat Vert (🌿 Feuille)</strong>. La joueuse faible s'assied jusqu'à la fin de la ronde et lâche son ballon (<strong>+1 pièce d'or / 🪙 PO</strong>).
             </p>
           </div>
           <div class="rule-box">
             <h3>3. Ultimates (Ronde 2) &amp; Magasin (Ronde 3)</h3>
             <p>
-              Dès la <strong>Ronde 2</strong> (1x/ronde, sans ballon), appuyez sur <strong>R</strong> pour viser puis <strong>Clic Gauche</strong> : <strong>🔥 Feu</strong> (laser sniper 0.3s), <strong>🌿 Feuille</strong> (sprint x3 2s + mur de branches 4s), <strong>💧 Eau</strong> (large vague). Magasin de pièces d'or (🪙 PO) dès la <strong>Ronde 3</strong>.
+              Dès la <strong>Ronde 2</strong> (<strong>1x/ronde par joueuse</strong>, sauf 🔥 évolué, sans ballon), appuyez sur <strong>R</strong> puis <strong>Clic Gauche</strong> :<br/>
+              • <strong>🔥 Feu</strong> : laser sniper (0.5s). <em>🌟 Évo :</em> +large/rapide + <strong>2 charges/ronde</strong> (3s CD).<br/>
+              • <strong>🌿 Feuille</strong> : sprint 3x (2s) + mur de branches (4s). <em>🌟 Évo :</em> sprint <strong>4.2x (3.5s)</strong> + mur géant <strong>8s</strong> qui <strong>bloque totalement la vue</strong>.<br/>
+              • <strong>💧 Eau</strong> : large vague (repousse + bouclier feu). <em>🌟 Évo :</em> vague <strong>360°</strong>, portée +45% &amp; <strong>rappel [R]</strong>.<br/>
+              Magasin de pièces d'or (🪙 PO) dès la <strong>Ronde 3</strong>.
             </p>
           </div>
         </div>
@@ -425,13 +431,13 @@
           <div class="rule-box">
             <h3>2. Intercepter (Assoyage)</h3>
             <p>
-              <strong>Vert (🌿) &gt; Bleu (💧) &gt; Rouge (🔥) &gt; Vert (🌿)</strong>. La joueuse faible s'assied et lâche son ballon (<strong>+1 🪙 PO</strong>). Même couleur : Règle 1.
+              Il suffit de toucher l'adversaire avec le bon élément : <strong>Vert (🌿) &gt; Bleu (💧) &gt; Rouge (🔥) &gt; Vert (🌿)</strong>. La joueuse faible s'assied et lâche son ballon (<strong>+1 🪙 PO</strong>). Même couleur : Règle 1.
             </p>
           </div>
           <div class="rule-box">
             <h3>3. Ultimates (Ronde 2) &amp; Magasin (Ronde 3)</h3>
             <p>
-              <strong>[R]</strong> puis <strong>Clic Gauche</strong> : <strong>🔥 Feu</strong> (laser), <strong>🌿 Feuille</strong> (sprint + mur), <strong>💧 Eau</strong> (vague). Magasin dès la <strong>Ronde 3</strong>.
+              <strong>1x/ronde</strong> (sauf 🔥 évolué : 2 charges), sans ballon, <strong>[R]</strong> puis <strong>Clic Gauche</strong> : <strong>🔥 Feu</strong> (laser sniper ; <em>🌟 Évo :</em> +large + 2 charges), <strong>🌿 Feuille</strong> (sprint 3x + mur 4s ; <em>🌟 Évo :</em> sprint 4.2x + mur géant 8s bloquant totalement la vue), <strong>💧 Eau</strong> (vague ; <em>🌟 Évo :</em> 360° + rappel [R]). Magasin dès la <strong>Ronde 3</strong>.
             </p>
           </div>
         </div>
@@ -540,6 +546,10 @@
           <label class="ctrl-slider-wrap" for="input-ctrl-tps-sens">
             <span>Sensibilité souris TPS : <strong id="ctrl-tps-sens-val">100%</strong></span>
             <input type="range" id="input-ctrl-tps-sens" min="50" max="160" step="10" value="100" />
+          </label>
+          <label class="ctrl-slider-wrap" for="input-ctrl-moba-cursor-sens" title="Vitesse du curseur virtuel confiné en vue MOBA">
+            <span>Sensibilité curseur MOBA : <strong id="ctrl-moba-cursor-sens-val">100%</strong></span>
+            <input type="range" id="input-ctrl-moba-cursor-sens" min="40" max="200" step="10" value="100" />
           </label>
           <button type="button" class="action-btn" id="btn-reset-controls" style="border-color:#f87171; color:#fca5a5;">🔄 Réinitialiser par défaut</button>
         </div>
@@ -758,8 +768,22 @@
         Observez la couleur des <strong>2 ballons</strong> tirés sur la ligne centrale et répartissez secrètement vos dossards dans le dos de vos 3 joueuses (positionnées en triangle équilatéral).
       </p>
 
+      <!-- Guide interactif du Magasin (Tutoriel Étape 6) -->
+      <div id="tutorial-shop-guide" class="tutorial-shop-guide hidden">
+        <div class="tut-shop-guide-header">
+          <span class="tut-shop-guide-badge" id="tut-shop-guide-badge">🎓 Guide du Magasin (1/3)</span>
+          <span class="tut-shop-guide-title" id="tut-shop-guide-title">⚽ Corridors des ballons</span>
+        </div>
+        <p class="tut-shop-guide-body" id="tut-shop-guide-body"></p>
+        <div class="tut-shop-guide-actions">
+          <button type="button" class="action-btn hidden" id="btn-tut-shop-prev" style="padding:4px 10px; font-size:0.74rem;">◀ Précédent</button>
+          <button type="button" class="action-btn primary" id="btn-tut-shop-next" style="padding:4px 12px; font-size:0.74rem;">Suivant ▶</button>
+          <button type="button" class="action-btn" id="btn-tut-shop-skip" style="margin-left:auto; padding:4px 10px; font-size:0.72rem; opacity:0.85;">Fermer le guide</button>
+        </div>
+      </div>
+
       <!-- Aperçu des 2 balles au centre -->
-      <div class="balls-preview-bar">
+      <div class="balls-preview-bar" id="prep-balls-preview-bar">
         <div class="ball-preview-item">
           <span>Ballon Couloir Gauche (en face de G) :</span>
           <span class="color-badge" id="preview-ball-top">Vert (🌿)</span>

@@ -421,10 +421,13 @@ let isTransitioningFullscreen = false;
 let fullscreenTransitionUntil = 0;
 let fullscreenTransitionTimer = null;
 let wasPointerLockedInPlay = false;
+let pointerLockAcquiredAt = 0;
 let programmaticPointerUnlockUntil = 0;
 let lastEscapePauseMs = 0;
 let resumePointerLockGraceUntil = 0;
+let fullscreenUnlockGraceUntil = 0;
 let pendingPointerLockOnEscapeKeyup = false;
+let escapeKeyHeld = false;
 let warnedIframeLockInRound = false;
 let lastViewportW = 1280;
 let lastViewportH = 720;
@@ -582,6 +585,9 @@ export function updateMobaVirtualCursorUI() {
 }
 
 export function lockPointerIfPlaying(forceEvenIfModalClosing = false) {
+  if (escapeKeyHeld || pendingPointerLockOnEscapeKeyup) {
+    return;
+  }
   const canLockMode = state.cameraMode === 'tps' || isMobaCursorLockActive();
   if (state.mobileMode || !canLockMode || (state.mode === 'practice' && state.practiceCursorFree)) {
     document.body.classList.remove('play-cursor-hidden');
@@ -596,6 +602,7 @@ export function lockPointerIfPlaying(forceEvenIfModalClosing = false) {
   }
   if (isPointerLocked()) {
     wasPointerLockedInPlay = true;
+    pointerLockAcquiredAt = performance.now();
     document.body.classList.add('play-cursor-hidden');
     updateMobaVirtualCursorUI();
     return;
@@ -626,6 +633,7 @@ export function lockPointerIfPlaying(forceEvenIfModalClosing = false) {
     const lockPromise = renderer.domElement.requestPointerLock();
     if (isPointerLocked()) {
       wasPointerLockedInPlay = true;
+      pointerLockAcquiredAt = performance.now();
       document.body.classList.add('play-cursor-hidden');
       updateMobaVirtualCursorUI();
     }
@@ -641,6 +649,7 @@ export function lockPointerIfPlaying(forceEvenIfModalClosing = false) {
           }
           if ((forceEvenIfModalClosing || !isMenuOpen()) && isPointerLocked()) {
             wasPointerLockedInPlay = true;
+            pointerLockAcquiredAt = performance.now();
             document.body.classList.add('play-cursor-hidden');
             if (isMobaCursorLockActive()) {
               const vw = Math.max(1, window.innerWidth || 1280);
@@ -861,37 +870,6 @@ export function raycastScreenToWorld(clientX, clientY) {
   return { x: hitX, y: hitY, z: hitZ, onCanopy: false };
 }
 
-function pickAlliedPlayerNearClick(clientX, clientY, worldHit) {
-  let bestRole = null;
-  let bestScore = Infinity;
-  const rect =
-    renderer && renderer.domElement ? renderer.domElement.getBoundingClientRect() : null;
-  ['G', 'C', 'D'].forEach((role) => {
-    const p = getPlayer(state.myTeam, role);
-    if (!p) return;
-    if (worldHit) {
-      const d3 = Math.hypot(p.pos.x - worldHit.x, p.pos.z - worldHit.z);
-      if (d3 < 3.2 && d3 < bestScore) {
-        bestScore = d3;
-        bestRole = role;
-      }
-    }
-    if (rect && rect.width && rect.height && typeof clientX === 'number') {
-      mobaTmpVec.set(p.pos.x, p.pos.y + 1.2, p.pos.z).project(camera);
-      if (mobaTmpVec.z >= -1 && mobaTmpVec.z <= 1) {
-        const sx = rect.left + (mobaTmpVec.x * 0.5 + 0.5) * rect.width;
-        const sy = rect.top + (-mobaTmpVec.y * 0.5 + 0.5) * rect.height;
-        const pxDist = Math.hypot(sx - clientX, sy - clientY);
-        if (pxDist < 34 && pxDist * 0.05 < bestScore) {
-          bestScore = pxDist * 0.05;
-          bestRole = role;
-        }
-      }
-    }
-  });
-  return bestRole;
-}
-
 function updateControlsHelpForCameraMode() {
   const titleEl = document.getElementById('controls-help-title');
   const bodyEl = document.getElementById('controls-help-body');
@@ -909,7 +887,7 @@ function updateControlsHelpForCameraMode() {
   const rolesTxt = `${formatActionKbdHtml('roleG')} ${formatActionKbdHtml('roleC')} ${formatActionKbdHtml('roleD')} / ${formatActionKbdHtml('cycleRoleNext')}`;
   const ultLine = state.vanillaMode
     ? ''
-    : `• ${ultTxt} puis ${ultConfirmTxt} : Viser &amp; lancer l’<strong>Ultimate</strong> (Ronde 2+)<br>`;
+    : `• ${ultTxt} puis ${ultConfirmTxt} : Viser &amp; lancer l’<strong>Ultimate</strong> (Ronde 2+, 1x/ronde sauf 🔥 évo)<br>`;
   const actionLabel = state.vanillaMode
     ? 'Passe (si débloquée) / Se relever'
     : 'Passe / Outil / Se relever';
@@ -922,7 +900,7 @@ function updateControlsHelpForCameraMode() {
         `• <strong>Bords d’écran / Flèches / Minimap</strong> : Caméra libre • ${camLockTxt} : Verrouiller • ${recenterTxt} : Recentrer<br>` +
         ultLine +
         `• ${dashTxt} : Dash (vers curseur) • ${actionTxt} : ${actionLabel} • ${jumpTxt} : Saut<br>` +
-        `• <kbd>Clic Gauche</kbd> / ${rolesTxt} : Changer G/C/D • ${toggleCamTxt} : TPS • ${minimapTxt} : Minimap • ${fsTxt} : Plein écran`;
+        `• ${rolesTxt} : Changer de position (Gauche G · Centre C · Droit D) • ${toggleCamTxt} : TPS • ${minimapTxt} : Minimap • ${fsTxt} : Plein écran`;
     }
   } else {
     const fwdTxt = formatActionKbdHtml('moveForward');
@@ -935,7 +913,7 @@ function updateControlsHelpForCameraMode() {
         `• ${fwdTxt} ${leftTxt} ${bwdTxt} ${rightTxt} : Déplacer • <kbd>Souris</kbd> : Viser (caméra)<br>` +
         ultLine +
         `• ${actionTxt} : ${actionLabel} • ${dashTxt} : Dash • ${jumpTxt} : Saut<br>` +
-        `• <kbd>Clic G / D</kbd> / ${rolesTxt} : Changer de joueuse (G / C / D)<br>` +
+        `• <kbd>Clic G / D</kbd> / ${rolesTxt} : Changer de position (Gauche G · Centre C · Droit D)<br>` +
         `• ${toggleCamTxt} : Caméra (TPS / MOBA) • ${minimapTxt} : Minimap • ${fsTxt} : Plein écran`;
     }
   }
@@ -991,7 +969,7 @@ export function setCameraMode(mode, silent = false) {
       const lockLbl = escapeHtml(formatActionBindingText('toggleCamLock'));
       const moveLbl = escapeHtml(formatActionBindingText('mobaMove'));
       showToast(
-        `🛰️ Mode <strong>Aérien MOBA</strong> : ${moveLbl} pour bouger • ${lockLbl} verrouiller • ${recenterLbl} recentrer !`,
+        `🛰️ Mode <strong>Aérien MOBA</strong> : ${moveLbl} pour bouger • [1/2/3] changer position • ${lockLbl} verrouiller • ${recenterLbl} recentrer !`,
         2600
       );
     }
@@ -1009,6 +987,8 @@ export function setCameraMode(mode, silent = false) {
       showToast('🎥 Mode <strong>3e Personne (TPS)</strong> activé !', 1800);
     }
   }
+  updateRosterHUD();
+  ctx.api.updateTutorialSequenceHUD?.();
   if (typeof updateMobileTouchHUD === 'function') {
     updateMobileTouchHUD();
   }
@@ -2374,6 +2354,7 @@ function toggleFullscreen() {
 
 function onFullscreenChange() {
   markFullscreenTransition(2500);
+  fullscreenUnlockGraceUntil = performance.now() + 450;
   scheduleViewportSync();
   updateFullscreenButtonsUI();
   const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -2384,10 +2365,12 @@ function onFullscreenChange() {
       banner.classList.remove('priority-toast');
     }
   }
-  if (!isMenuOpen()) {
+  if (!isMenuOpen() && !escapeKeyHeld && !pendingPointerLockOnEscapeKeyup) {
     lockPointerIfPlaying();
     setTimeout(() => {
-      if (!isMenuOpen()) lockPointerIfPlaying();
+      if (!isMenuOpen() && !escapeKeyHeld && !pendingPointerLockOnEscapeKeyup) {
+        lockPointerIfPlaying();
+      }
     }, 150);
   }
 }
@@ -2610,11 +2593,11 @@ export function resumeFromPauseMenu(opts = {}) {
     pendingPointerLockOnEscapeKeyup = false;
     showOnlyModal('round-end-modal');
   } else {
-    resumePointerLockGraceUntil = performance.now() + 120;
+    resumePointerLockGraceUntil = performance.now() + 650;
     showOnlyModal(null);
     if (fromEscape) {
-      // Sous Linux (X11/Wayland), reverrouiller le pointeur pendant que Échap est encore enfoncé
-      // peut déclencher un déverrouillage immédiat qui réouvre aussitôt le menu pause.
+      // Reverrouiller le pointeur pendant que Échap est encore enfoncé peut déclencher un déverrouillage
+      // immédiat (ou un nouvel événement Escape/pointerlockchange) qui réouvre aussitôt le menu pause.
       pendingPointerLockOnEscapeKeyup = true;
     } else {
       pendingPointerLockOnEscapeKeyup = false;
@@ -2659,9 +2642,9 @@ export function selectControlledRole(role, options = {}) {
   } else if (state.mode === 'tutorial' && state.tutorialStep === TUTORIAL_STEPS.RULE1 && !options.silent && prevRole !== role) {
     if (role === 'C') {
       ctx.api.markTutorialCheck('rule1Switched');
-      showToast('💧 <strong>Bon élément (💧 > 🔥) !</strong> Allez intercepter <strong>Adv C (🔥)</strong> pour libérer G !', 3600);
+      showToast('💧 <strong>Bon élément (💧 > 🔥) !</strong> Touchez <strong>Adv C (🔥)</strong> avec <strong>Centre (C)</strong> pour libérer Gauche (G) !', 3800);
     } else if (role === 'D' && !state.tutorialChecklist.rule1Broken) {
-      showToast('⚠️ <strong>Mauvais élément :</strong> D est Feuille (🌿) et perd contre 🔥 ! Seule <strong>💧 C</strong> (💧 > 🔥) peut débloquer la Règle 1 !', 3800);
+      showToast('⚠️ <strong>Mauvais élément :</strong> Droit (D) est Feuille (🌿) et perd contre 🔥 ! Prenez <strong>Centre (C · 💧)</strong> pour débloquer la Règle 1 !', 3800);
     }
   }
   const me = mp.members.find((m) => m.peerId === mp.myPeerId);
@@ -3896,9 +3879,18 @@ export function updateTopHUD() {
   }
 }
 
+const ROLE_POS_LABELS = { G: 'Gauche (G)', C: 'Centre (C)', D: 'Droit (D)' };
+
 export function updateRosterHUD() {
   const allyList = document.getElementById('ally-roster-list');
   const enemyList = document.getElementById('enemy-roster-list');
+  const allyTitleEl = document.getElementById('ally-roster-title');
+  if (allyTitleEl) {
+    allyTitleEl.textContent =
+      state.cameraMode === 'aerial'
+        ? 'Vos Joueuses ([1] [2] [3])'
+        : 'Vos Joueuses ([1/2/3] / Clic)';
+  }
   allyList.innerHTML = '';
   enemyList.innerHTML = '';
 
@@ -3944,7 +3936,7 @@ export function updateRosterHUD() {
     row.innerHTML = `
       <div class="player-role-key">
         <span class="key-hint">${humanOwner ? '🔒' : idx + 1}</span>
-        <span>Joueuse ${role}</span>
+        <span>${ROLE_POS_LABELS[role] || role}</span>
       </div>
       <div class="player-status-icons">
         ${humanOwner ? `<span style="font-size:0.72rem; color:#38bdf8; font-weight:800;">👤 ${escapeHtml(humanOwner.name)}</span>` : ''}
@@ -4001,7 +3993,7 @@ export function updateRosterHUD() {
 
     row.innerHTML = `
       <div class="player-role-key">
-        <span>Adversaire ${role}</span>
+        <span>Adv. ${ROLE_POS_LABELS[role] || role}</span>
       </div>
       <div class="player-status-icons">
         ${oppInBushSpotted ? STEALTH_BADGE_HTML : ''}
@@ -5237,6 +5229,27 @@ function bindUIButtons() {
       ctx.api.advanceTutorialStep?.();
     };
   }
+  const btnTutShopPrev = document.getElementById('btn-tut-shop-prev');
+  if (btnTutShopPrev) {
+    btnTutShopPrev.onclick = () => {
+      if (state.mode !== 'tutorial') return;
+      ctx.api.setTutorialShopGuideStep?.(Math.max(1, (state.tutorialShopGuideStep || 1) - 1));
+    };
+  }
+  const btnTutShopNext = document.getElementById('btn-tut-shop-next');
+  if (btnTutShopNext) {
+    btnTutShopNext.onclick = () => {
+      if (state.mode !== 'tutorial') return;
+      const cur = Number(state.tutorialShopGuideStep) || 1;
+      ctx.api.setTutorialShopGuideStep?.(cur < 3 ? cur + 1 : 0);
+    };
+  }
+  const btnTutShopSkip = document.getElementById('btn-tut-shop-skip');
+  if (btnTutShopSkip) {
+    btnTutShopSkip.onclick = () => {
+      ctx.api.setTutorialShopGuideStep?.(0);
+    };
+  }
 
   document.getElementById('btn-mp-back').onclick = () => {
     if (state.mode === 'practice' && state.phase === 'play') {
@@ -5612,6 +5625,7 @@ export function saveControlsConfig() {
         mobaEdgePan: !!state.mobaEdgePan,
         mobaCursorLock: !!state.mobaCursorLock,
         mobaCamSpeed: state.mobaCamSpeed,
+        mobaCursorSensitivity: state.mobaCursorSensitivity,
         tpsSensitivity: state.tpsSensitivity,
         defaultCameraMode: state.defaultCameraMode === 'aerial' ? 'aerial' : 'tps',
         mobaMoveButton: state.mobaMoveButton === 'left' ? 'left' : 'right'
@@ -5650,6 +5664,9 @@ export function loadControlsConfig() {
         if (typeof parsed.mobaCamSpeed === 'number' && Number.isFinite(parsed.mobaCamSpeed)) {
           state.mobaCamSpeed = Math.max(0.5, Math.min(1.6, parsed.mobaCamSpeed));
         }
+        if (typeof parsed.mobaCursorSensitivity === 'number' && Number.isFinite(parsed.mobaCursorSensitivity)) {
+          state.mobaCursorSensitivity = Math.max(0.4, Math.min(2.0, parsed.mobaCursorSensitivity));
+        }
         if (typeof parsed.tpsSensitivity === 'number' && Number.isFinite(parsed.tpsSensitivity)) {
           state.tpsSensitivity = Math.max(0.5, Math.min(1.6, parsed.tpsSensitivity));
         }
@@ -5674,6 +5691,9 @@ export function loadControlsConfig() {
           }
           if (typeof legacyParsed.mobaCamSpeed === 'number' && Number.isFinite(legacyParsed.mobaCamSpeed)) {
             state.mobaCamSpeed = Math.max(0.5, Math.min(1.6, legacyParsed.mobaCamSpeed));
+          }
+          if (typeof legacyParsed.mobaCursorSensitivity === 'number' && Number.isFinite(legacyParsed.mobaCursorSensitivity)) {
+            state.mobaCursorSensitivity = Math.max(0.4, Math.min(2.0, legacyParsed.mobaCursorSensitivity));
           }
           if (typeof legacyParsed.tpsSensitivity === 'number' && Number.isFinite(legacyParsed.tpsSensitivity)) {
             state.tpsSensitivity = Math.max(0.5, Math.min(1.6, legacyParsed.tpsSensitivity));
@@ -5756,6 +5776,7 @@ export function resetControlsToDefault() {
   state.mobaEdgePan = true;
   state.mobaCursorLock = true;
   state.mobaCamSpeed = 1.0;
+  state.mobaCursorSensitivity = 1.0;
   state.tpsSensitivity = 1.0;
   state.defaultCameraMode = 'tps';
   state.mobaMoveButton = 'right';
@@ -5809,6 +5830,12 @@ function syncControlsSettingsUI() {
   const tpsPct = Math.round((state.tpsSensitivity || 1.0) * 100);
   if (tpsSlider) tpsSlider.value = String(tpsPct);
   if (tpsVal) tpsVal.textContent = `${tpsPct}%`;
+
+  const mobaCursorSlider = document.getElementById('input-ctrl-moba-cursor-sens');
+  const mobaCursorVal = document.getElementById('ctrl-moba-cursor-sens-val');
+  const mobaCursorPct = Math.round((state.mobaCursorSensitivity || 1.0) * 100);
+  if (mobaCursorSlider) mobaCursorSlider.value = String(mobaCursorPct);
+  if (mobaCursorVal) mobaCursorVal.textContent = `${mobaCursorPct}%`;
 }
 
 export function renderControlsCustomizer() {
@@ -5939,6 +5966,15 @@ function bindControlsCustomizerUI() {
       saveControlsConfig();
     };
   }
+  const mobaCursorSlider = document.getElementById('input-ctrl-moba-cursor-sens');
+  if (mobaCursorSlider) {
+    mobaCursorSlider.oninput = () => {
+      const pct = Math.max(40, Math.min(200, Number(mobaCursorSlider.value) || 100));
+      state.mobaCursorSensitivity = pct / 100;
+      syncControlsSettingsUI();
+      saveControlsConfig();
+    };
+  }
   const resetBtn = document.getElementById('btn-reset-controls');
   if (resetBtn) {
     resetBtn.onclick = () => {
@@ -6028,6 +6064,7 @@ function registerUIGlobalListeners() {
     if (locked) {
       if (!isMenuOpen()) {
         wasPointerLockedInPlay = true;
+        pointerLockAcquiredAt = performance.now();
         if (isMobaCursorLockActive()) {
           const vw = Math.max(1, window.innerWidth || 1280);
           const vh = Math.max(1, window.innerHeight || 720);
@@ -6045,16 +6082,19 @@ function registerUIGlobalListeners() {
     clearInputKeys();
     updateMobaVirtualCursorUI();
 
+    const now = performance.now();
     if (
       hadPlayLock &&
       state.phase === 'play' &&
       !isMenuOpen() &&
       canLockNow &&
       !(state.mode === 'practice' && state.practiceCursorFree) &&
-      performance.now() > programmaticPointerUnlockUntil &&
-      performance.now() > resumePointerLockGraceUntil
+      now > programmaticPointerUnlockUntil &&
+      now > resumePointerLockGraceUntil &&
+      now > fullscreenUnlockGraceUntil &&
+      now - pointerLockAcquiredAt > 350
     ) {
-      lastEscapePauseMs = performance.now();
+      lastEscapePauseMs = now;
       openPauseMenu();
     }
   });
@@ -6107,8 +6147,9 @@ function registerUIGlobalListeners() {
 
     if (e.code === 'Escape') {
       e.preventDefault();
+      escapeKeyHeld = true;
       if (e.repeat) return;
-      if (performance.now() - lastEscapePauseMs < 140) {
+      if (performance.now() - lastEscapePauseMs < 220) {
         return;
       }
       if (state.passCharge && state.passCharge.active) {
@@ -6309,10 +6350,11 @@ function registerUIGlobalListeners() {
       !isPointerLocked() &&
       !(state.mode === 'practice' && state.practiceCursorFree);
     if (e.code === 'Escape') {
+      escapeKeyHeld = false;
       if (pendingPointerLockOnEscapeKeyup) {
         pendingPointerLockOnEscapeKeyup = false;
         if (shouldLockNow) {
-          resumePointerLockGraceUntil = performance.now() + 120;
+          resumePointerLockGraceUntil = performance.now() + 650;
           lockPointerIfPlaying();
         }
       }
@@ -6332,6 +6374,7 @@ function registerUIGlobalListeners() {
 
   window.addEventListener('blur', () => {
     state.mouseInWindow = false;
+    escapeKeyHeld = false;
     pendingPointerLockOnEscapeKeyup = false;
     clearInputKeys();
   });
@@ -6344,6 +6387,8 @@ function registerUIGlobalListeners() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       state.mouseInWindow = false;
+      escapeKeyHeld = false;
+      pendingPointerLockOnEscapeKeyup = false;
       clearInputKeys();
     }
   });
@@ -6516,12 +6561,6 @@ function registerUIGlobalListeners() {
         }
       }
 
-      if (!handledByBinding && e.button === 0 && !state.myLockedRole && ctx.api.isTutorialRoleSwitchAllowed()) {
-        const pickedRole = pickAlliedPlayerNearClick(ptrX, ptrY, hit);
-        if (pickedRole && pickedRole !== state.controlledRole) {
-          selectControlledRole(pickedRole);
-        }
-      }
       updateMobaVirtualCursorUI();
       return;
     }
@@ -6612,8 +6651,9 @@ function registerUIGlobalListeners() {
       const vh = Math.max(1, window.innerHeight || 720);
       const curX = typeof state.mouseClientX === 'number' ? state.mouseClientX : vw * 0.5;
       const curY = typeof state.mouseClientY === 'number' ? state.mouseClientY : vh * 0.5;
-      state.mouseClientX = Math.max(0, Math.min(vw - 1, curX + (e.movementX || 0)));
-      state.mouseClientY = Math.max(0, Math.min(vh - 1, curY + (e.movementY || 0)));
+      const mobaSens = state.mobaCursorSensitivity || 1.0;
+      state.mouseClientX = Math.max(0, Math.min(vw - 1, curX + (e.movementX || 0) * mobaSens));
+      state.mouseClientY = Math.max(0, Math.min(vh - 1, curY + (e.movementY || 0) * mobaSens));
     } else {
       state.mouseClientX = e.clientX;
       state.mouseClientY = e.clientY;
@@ -6719,6 +6759,11 @@ function registerUIGlobalListeners() {
 export function resetPointerLockFlags() {
   warnedIframeLockInRound = false;
   wasPointerLockedInPlay = false;
+  pointerLockAcquiredAt = 0;
+  escapeKeyHeld = false;
+  pendingPointerLockOnEscapeKeyup = false;
+  resumePointerLockGraceUntil = 0;
+  fullscreenUnlockGraceUntil = 0;
 }
 
 export function hideMobaMoveMarker() {
