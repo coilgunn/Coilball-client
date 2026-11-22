@@ -3110,12 +3110,19 @@ export function finishRound(reasonText, fromNetwork = false, networkBounties = [
   } else {
     titleEl.textContent = `Fin de la Ronde ${state.round}`;
     summaryEl.textContent = `${reasonText}`;
-    detailsEl.textContent =
+    const nextRoundUnlockNote =
+      state.round + 1 === 2 && !state.vanillaMode
+        ? '⚡ Les Ultimates Élémentaires ([R] + Clic Gauche) sont maintenant DÉBLOQUÉS pour la Ronde 2 !'
+        : state.round + 1 === 3
+        ? '🛒 Le Magasin ouvre ses portes à la prochaine ronde (Ronde 3) !'
+        : '';
+    const baseRoundNotes =
       bountyNotes.length > 0
         ? bountyNotes.join(' • ')
-        : state.round + 1 === 3
-        ? '🛒 Le Magasin simple ouvre ses portes à la prochaine ronde (Ronde 3) !'
         : `Score : Équipe Or ${state.allyPV} pts (${state.allyPE} 🪙 PO) — Équipe Violette ${state.enemyPV} pts (${state.enemyPE} 🪙 PO)`;
+    detailsEl.textContent = nextRoundUnlockNote
+      ? `${nextRoundUnlockNote} • ${baseRoundNotes}`
+      : baseRoundNotes;
     nextBtn.disabled = mp.enabled && !mp.isHost;
     nextBtn.textContent =
       mp.enabled && !mp.isHost

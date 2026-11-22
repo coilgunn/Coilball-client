@@ -702,6 +702,29 @@ export function openPrepModal(options = {}) {
     ? 'Or : ∞ 🪙 PO (Pratique)'
     : `Or : ${myPE} 🪙 PO`;
 
+  const prepDescEl = document.getElementById('prep-modal-desc');
+  if (prepDescEl) {
+    const baseDesc =
+      'Observez la couleur des <strong>2 ballons</strong> tirés sur la ligne centrale et répartissez secrètement vos dossards dans le dos de vos 3 joueuses (<strong>Gauche G</strong>, <strong>Centre C</strong>, <strong>Droit D</strong>).';
+    if (state.mode === 'tutorial' || state.mode === 'practice') {
+      prepDescEl.innerHTML = baseDesc;
+    } else if (state.round === 1) {
+      const r1Note = state.vanillaMode
+        ? '🔒 <strong>Rappel Ronde 1 (Mode Vanille) :</strong> les <strong>Ultimates</strong> sont désactivés et le <strong>Magasin</strong> (débloqué à la <strong>Ronde 3</strong>) est <strong>verrouillé</strong> pour cette première ronde.'
+        : '🔒 <strong>Rappel Ronde 1 :</strong> les <strong>Ultimates</strong> (débloqués à la <strong>2e ronde</strong>) et le <strong>Magasin</strong> (débloqué à la <strong>3e ronde</strong>) sont <strong>verrouillés</strong> pour cette première ronde !';
+      prepDescEl.innerHTML =
+        `${baseDesc}<div style="margin-top:8px; padding:7px 12px; border-radius:10px; background:rgba(245,158,11,0.16); border:1px solid rgba(250,204,21,0.55); color:#fef08a; font-size:0.84rem;">${r1Note}</div>`;
+    } else if (state.round === 2 && !state.vanillaMode) {
+      prepDescEl.innerHTML =
+        `${baseDesc}<div style="margin-top:8px; padding:7px 12px; border-radius:10px; background:rgba(14,165,233,0.18); border:1px solid rgba(56,189,248,0.65); color:#e0f2fe; font-size:0.84rem;">⚡ <strong>Ronde 2 — Ultimates débloqués !</strong> Chaque joueuse peut désormais utiliser son <strong>Ultimate 1x par ronde</strong> (<strong>[R]</strong> puis <strong>Clic Gauche</strong>, sans ballon). <em>(🔒 Magasin à la Ronde 3)</em></div>`;
+    } else if (state.round === 3) {
+      prepDescEl.innerHTML =
+        `${baseDesc}<div style="margin-top:8px; padding:7px 12px; border-radius:10px; background:rgba(34,197,94,0.16); border:1px solid rgba(74,222,128,0.55); color:#dcfce7; font-size:0.84rem;">🛒 <strong>Ronde 3 — Magasin débloqué !</strong> Dépensez vos <strong>🪙 PO</strong> dans les onglets <strong>Pouvoirs Individuels</strong> et <strong>Bonus d’Équipe</strong>.</div>`;
+    } else {
+      prepDescEl.innerHTML = baseDesc;
+    }
+  }
+
   const topBadge = document.getElementById('preview-ball-top');
   const botBadge = document.getElementById('preview-ball-bottom');
   const cTop = COLORS[state.drawnBalls[0]];
@@ -1603,10 +1626,10 @@ function getTutorialStepDef(stepNum) {
       ]
     },
     7: {
-      title: '7/8 — Les 3 Ultimates ⚡',
+      title: '7/8 — Les 3 Ultimates (2e Ronde) ⚡',
       desc: isMob
-        ? 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. Essayez les 3 éléments : 🔥 G, 💧 C et 🌿 D !'
-        : 'Dès la Ronde 2 : 1x/ronde par joueuse (sauf 🔥 évolué : 2 charges), sans ballon. Essayez les 3 éléments : 🔥 Gauche (G), 💧 Centre (C) et 🌿 Droit (D) !',
+        ? 'Débloqués à la 2e ronde en match normal (1x/ronde, sauf 🔥 évolué : 2 charges, sans ballon). Essayez les 3 éléments : 🔥 G, 💧 C et 🌿 D !'
+        : 'Débloqués à la 2e ronde en match normal (1x/ronde, sauf 🔥 évolué : 2 charges, sans ballon). Essayez les 3 éléments : 🔥 Gauche (G), 💧 Centre (C) et 🌿 Droit (D) !',
       extraHtml:
         '<div><strong>🔥 Feu :</strong> Laser plasma sniper (0.5s). <em>🌟 Évo :</em> +large/rapide + <strong>2 charges/ronde</strong> (3s CD).</div>' +
         '<div><strong>🌿 Feuille :</strong> Sprint 3x (2s) + mur de branches (4s). <em>🌟 Évo :</em> sprint <strong>4.2x (3.5s)</strong> + mur géant <strong>8s</strong> qui <strong>bloque totalement la vue</strong>.</div>' +
@@ -1723,8 +1746,8 @@ export function dismissTutorialIntro() {
     if (wasVisible && tutorialIntroKind === 'ult' && state.tutorialStep === TUTORIAL_STEPS.ULTIMATE) {
       showToast(
         state.mobileMode
-          ? '🔥 <strong>1/3 — Ultimate Feu (Gauche G) :</strong> Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
-          : '🔥 <strong>1/3 — Ultimate Feu (Gauche G) :</strong> Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma vers <strong>Adv D</strong> puis <strong>Clic Gauche</strong> !',
+          ? '🔥 <strong>1/3 — Ultimate Feu (Gauche G) :</strong> (Débloqué à la <strong>2e ronde</strong> en match) Maintenez <strong>⚡ Ult</strong> pour viser vers <strong>Adv D</strong> puis relâchez !'
+          : '🔥 <strong>1/3 — Ultimate Feu (Gauche G) :</strong> (Débloqué à la <strong>2e ronde</strong> en match) Appuyez sur <strong>[R]</strong> pour viser le Rayon Plasma vers <strong>Adv D</strong> puis <strong>Clic Gauche</strong> !',
         5000
       );
     } else if (wasVisible && state.tutorialStep === 1) {
@@ -2790,10 +2813,26 @@ export function startRoundExecution(fromNetwork = false) {
     );
   } else {
     updateTutorialSequenceHUD();
-    showToast(
-      `🚀 <strong>${state.vanillaMode ? '🍦 Vanille • ' : ''}Ronde ${state.round} — Au jeu !</strong> Contournez les adversaires pour voir leur dossard (🌿 / 💧 / 🔥) dans leur dos, ramassez les ballons de votre couleur et marquez dans le cerceau adverse !`,
-      5000
-    );
+    if (state.round === 1) {
+      showToast(
+        state.vanillaMode
+          ? '🚀 <strong>🍦 Vanille • Ronde 1 — Au jeu !</strong> (🔒 <strong>Magasin verrouillé</strong> jusqu’à la Ronde 3) Contournez les adversaires pour voir leur dossard (🌿 / 💧 / 🔥), ramassez votre ballon et marquez !'
+          : '🚀 <strong>Ronde 1 — Au jeu !</strong> (🔒 <strong>Ultimates</strong> [Ronde 2] et <strong>Magasin</strong> [Ronde 3] verrouillés pour cette 1re ronde) Contournez les adversaires, ramassez votre ballon et marquez !',
+        5500
+      );
+    } else if (state.round === 2 && !state.vanillaMode) {
+      showToast(
+        state.mobileMode
+          ? '⚡ <strong>Ronde 2 — ULTIMATES DÉBLOQUÉS !</strong> Maintenez <strong>⚡ Ult</strong> (1x/ronde par joueuse, sans ballon) pour lancer vos Ultimates élémentaires (🔥 / 💧 / 🌿) !'
+          : '⚡ <strong>Ronde 2 — ULTIMATES DÉBLOQUÉS !</strong> Appuyez sur <strong>[R]</strong> puis <strong>Clic Gauche</strong> (1x/ronde par joueuse, sans ballon) pour lancer vos Ultimates élémentaires (🔥 / 💧 / 🌿) !',
+        5800
+      );
+    } else {
+      showToast(
+        `🚀 <strong>${state.vanillaMode ? '🍦 Vanille • ' : ''}Ronde ${state.round} — Au jeu !</strong> Contournez les adversaires pour voir leur dossard (🌿 / 💧 / 🔥) dans leur dos, ramassez les ballons de votre couleur et marquez dans le cerceau adverse !`,
+        5000
+      );
+    }
   }
 }
 
