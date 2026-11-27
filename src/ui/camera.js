@@ -135,6 +135,7 @@ function updateTpsCamera(controlled, mobCamCurveX, mobCamCurveY, dt) {
   const dist = 8.0;
   const baseY = controlled.pos.y || 0;
   const pivotY = baseY + 1.45;
+  const lookY = baseY + 2.45;
   const horizDist = Math.cos(state.camPitch) * dist;
   const vertOffset = Math.sin(state.camPitch) * dist;
   const sinY = Math.sin(state.camYaw);
@@ -145,7 +146,7 @@ function updateTpsCamera(controlled, mobCamCurveX, mobCamCurveY, dt) {
     pivotY + vertOffset,
     controlled.pos.z + cosY * horizDist
   );
-  uiState.tmpCamLook.set(controlled.pos.x, pivotY, controlled.pos.z);
+  uiState.tmpCamLook.set(controlled.pos.x, lookY, controlled.pos.z);
   camera.lookAt(uiState.tmpCamLook);
   camera.updateMatrixWorld();
 }
