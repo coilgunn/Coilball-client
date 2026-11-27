@@ -34,7 +34,6 @@ function registerUIGlobalListeners() {
 export function initUI() {
   uiState.mobaRaycaster = new THREE.Raycaster();
   uiState.mobaPointerNDC = new THREE.Vector2();
-  uiState.tmpCamDesired = new THREE.Vector3();
   uiState.tmpCamLook = new THREE.Vector3();
   uiState.tmpProjVec = new THREE.Vector3();
   const vp = getViewportSize();

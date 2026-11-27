@@ -67,7 +67,6 @@ export const uiState = {
   mobaMoveMarkerPulse: 0,
   markerUpVec: null,
   markerNormVec: null,
-  tmpCamDesired: null,
   tmpCamLook: null,
   tmpProjVec: null,
   aerialVisionGroup: null,

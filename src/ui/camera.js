@@ -132,22 +132,20 @@ function updateTpsCamera(controlled, mobCamCurveX, mobCamCurveY, dt) {
     state.camYaw -= mobCamCurveX * 3.0 * sens * dt;
     state.camPitch = Math.max(0.12, Math.min(1.15, state.camPitch - mobCamCurveY * 1.8 * sens * dt));
   }
-  const dist = 7.8;
+  const dist = 8.0;
   const baseY = controlled.pos.y || 0;
-  const height = baseY + 3.6 + Math.sin(state.camPitch) * 3.2;
+  const pivotY = baseY + 1.45;
   const horizDist = Math.cos(state.camPitch) * dist;
+  const vertOffset = Math.sin(state.camPitch) * dist;
+  const sinY = Math.sin(state.camYaw);
+  const cosY = Math.cos(state.camYaw);
 
-  uiState.tmpCamDesired.set(
-    controlled.pos.x + Math.sin(state.camYaw) * horizDist,
-    height,
-    controlled.pos.z + Math.cos(state.camYaw) * horizDist
+  camera.position.set(
+    controlled.pos.x + sinY * horizDist,
+    pivotY + vertOffset,
+    controlled.pos.z + cosY * horizDist
   );
-  camera.position.lerp(uiState.tmpCamDesired, Math.min(1, 12 * dt));
-  uiState.tmpCamLook.set(
-    controlled.pos.x - Math.sin(state.camYaw) * 6,
-    baseY + 1.4,
-    controlled.pos.z - Math.cos(state.camYaw) * 6
-  );
+  uiState.tmpCamLook.set(controlled.pos.x, pivotY, controlled.pos.z);
   camera.lookAt(uiState.tmpCamLook);
   camera.updateMatrixWorld();
 }
