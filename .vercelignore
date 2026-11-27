@@ -7,4 +7,3 @@ server
 Coilball start server.bat
 notes
 node_modules
-build.mjs
