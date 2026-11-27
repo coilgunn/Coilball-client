@@ -19,12 +19,12 @@ try {
     const saved = JSON.parse(fs.readFileSync(BANNED_IPS_FILE, 'utf8'));
     if (Array.isArray(saved)) saved.forEach((ip) => ip && bannedIps.add(String(ip)));
   }
-} catch (_) {}
+} catch (_) { /* ignore */ }
 
 function saveBannedIps() {
   try {
     fs.writeFileSync(BANNED_IPS_FILE, JSON.stringify(Array.from(bannedIps), null, 2));
-  } catch (_) {}
+  } catch (_) { /* ignore */ }
 }
 
 function normalizeIp(raw) {
@@ -64,7 +64,7 @@ function forceCloseRoom(code) {
       isHost: true,
       _sender: hostId
     });
-    try { s.close(4004, 'Salon fermé par l’administrateur'); } catch (_) {}
+    try { s.close(4004, 'Salon fermé par l’administrateur'); } catch (_) { /* ignore */ }
   });
   console.log(`[Admin] Salon ${cleanCode} fermé de force. Salons actifs: ${rooms.size}`);
   return true;
@@ -80,7 +80,7 @@ function banIp(rawIp) {
     if (ws._ip === ip) {
       kicked++;
       cleanupSocket(ws);
-      try { ws.close(4003, 'IP bannie'); } catch (_) {}
+      try { ws.close(4003, 'IP bannie'); } catch (_) { /* ignore */ }
     }
   });
   console.log(`[Admin] IP bannie: ${ip} (${kicked} connexion(s) coupée(s))`);
@@ -116,7 +116,7 @@ function safeSend(ws, data, isBinary = false) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   try {
     ws.send(data, { binary: isBinary });
-  } catch (_) {}
+  } catch (_) { /* ignore */ }
 }
 
 function sendJson(ws, obj) {
@@ -245,7 +245,7 @@ wss.on('connection', (ws, req) => {
   const clientIp = getClientIp(req);
   if (clientIp && bannedIps.has(clientIp)) {
     sendJson(ws, { type: 'WS_BANNED' });
-    try { ws.close(4003, 'IP bannie'); } catch (_) {}
+    try { ws.close(4003, 'IP bannie'); } catch (_) { /* ignore */ }
     return;
   }
 
@@ -336,7 +336,7 @@ wss.on('connection', (ws, req) => {
         if (other._peerId === peerId) {
           room.clients.delete(other);
           other._roomCode = null;
-          try { other.terminate(); } catch (_) {}
+          try { other.terminate(); } catch (_) { /* ignore */ }
         }
       });
 
@@ -389,16 +389,16 @@ const heartbeatTimer = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (ws._isAlive === false) {
       cleanupSocket(ws);
-      try { ws.terminate(); } catch (_) {}
+      try { ws.terminate(); } catch (_) { /* ignore */ }
       return;
     }
     ws._isAlive = false;
-    try { ws.ping(); } catch (_) {}
+    try { ws.ping(); } catch (_) { /* ignore */ }
   });
 }, HEARTBEAT_INTERVAL_MS);
 
 wss.on('close', () => clearInterval(heartbeatTimer));
 
 server.listen(PORT, HOST, () => {
-  console.log(`Coilball multiplayer server listening on http://${HOST}:${PORT}`);
+  process.stdout.write(`Coilball multiplayer server listening on http://${HOST}:${PORT}\n`);
 });

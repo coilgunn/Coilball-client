@@ -1,7 +1,3 @@
-// ============================================================================
-// COILBALL 3D — PROTOTYPE MODE PÉDAGOGIQUE (SOLO & MULTIJOUEUR P2P)
-// Point d’entrée ES Module : bootstrap, câblage ctx.api et boucle animate
-// ============================================================================
 
 import { state, ctx } from './src/state.js';
 import {
@@ -229,7 +225,6 @@ Object.assign(ctx.api, {
   recenterMobaCamera
 });
 
-// --- BOUCLE D'ANIMATION PRINCIPALE (plafonnée à 120 FPS max, 60 FPS en Low Spec) ---
 const MAX_FPS = 120;
 const FRAME_MIN_MS = 1000 / MAX_FPS;
 const FRAME_EPS_MS = 0.5; // Tolérance vsync 120 Hz pour éviter de sauter une frame à ~8.3 ms
@@ -271,7 +266,7 @@ let savedMobileMode = null;
 try {
   savedLowSpec = localStorage.getItem('coilball_low_spec');
   savedMobileMode = localStorage.getItem('coilball_mobile_mode');
-} catch (_) {}
+} catch (_) { /* ignore */ }
 const autoMobileDevice = detectDefaultMobileDevice();
 const initialMobile = savedMobileMode !== null ? savedMobileMode === '1' : autoMobileDevice;
 const initialLowSpec = savedLowSpec !== null ? savedLowSpec === '1' : initialMobile;

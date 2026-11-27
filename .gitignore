@@ -10,3 +10,5 @@ server/banned-ips.json
 
 .vercel
 .env*
+
+node_modules/

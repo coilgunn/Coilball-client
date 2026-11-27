@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "node -e \"const fs=require('fs'); fs.mkdirSync('dist',{recursive:true}); ['index.html','style.css','game.js','three.min.js','peerjs.min.js','manifest.json'].forEach(f=>fs.copyFileSync(f,'dist/'+f)); fs.rmSync('dist/src',{recursive:true,force:true}); if(fs.existsSync('src')) fs.cpSync('src','dist/src',{recursive:true});\""
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
